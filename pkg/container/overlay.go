@@ -8,41 +8,59 @@ import (
 	"github.com/google/uuid"
 )
 
-func CreateOverlayFS() (error,string) {
+func CreateOverlayFS() (error, string) {
 	containerID := uuid.New().String()
 	upperDir := "/tmp/boxify-container/" + containerID + "/upper"
 	workDir := "/tmp/boxify-container/" + containerID + "/work"
 	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
+	fmt.Printf("Creating overlay FS for container %s\n", containerID)
 
 	err := os.MkdirAll(upperDir, 0o755)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: error creating directory for upperDir %v\n", err)
-		return err,""
+		return err, ""
 	}
 
 	err = os.MkdirAll(workDir, 0o755)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: error creating directory for workDir %v\n", err)
-		return err,""
+		return err, ""
 	}
 
 	err = os.MkdirAll(mergedDir, 0o755)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: error creating directory for mergedDir %v\n", err)
-		return err,""
+		return err, ""
 	}
 
 	opts := fmt.Sprintf("lowerdir=/tmp/boxify-root,upperdir=%s,workdir=%s", upperDir, workDir)
+	fmt.Printf("mounting %v\n", mergedDir)
 	err = syscall.Mount("overlay", mergedDir, "overlay", 0, opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: errour creating overlay FS %v\n", err)
-		return err,""
+		fmt.Fprintf(os.Stderr, "Error: failed to mount %v\n", err)
+		return err, ""
+	}
+	fmt.Printf("creating oldroot directory\n")
+	oldRoot := mergedDir + "/.oldroot"
+	err = os.MkdirAll(oldRoot, 0o700)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create old root %v\n", err)
+		return err, ""
 	}
 
-	syscall.PivotRoot(mergedDir, "/tmp/boxify-root/old")
-	syscall.Chdir("/")
-	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
-	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
+	fmt.Printf("pivoting\n")
+	err = syscall.PivotRoot(mergedDir,oldRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: error in pivot function %v\n", err)
+		return err, ""
+	}
+	fmt.Printf("changing dir\n")
+	err = syscall.Chdir("/")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: error in pivot function %v\n", err)
+		return err, ""
+	}
+fmt.Printf("done\n")
 
 	return nil, containerID
 }

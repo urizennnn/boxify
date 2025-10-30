@@ -41,14 +41,18 @@ func parent() {
 }
 
 func child() {
-	err, _ := container.InitContainer()
+	err, containerID := container.InitContainer()
 
+	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
+	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
+	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: errour creating overlay FS %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: failed in creating overlay FS %v\n", err)
 		os.Exit(1)
 	}
-	cmd := exec.Command("/bin/sh")
 	setupMounts()
+
+	cmd := exec.Command("/bin/sh")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -61,23 +65,20 @@ func child() {
 }
 
 func setupMounts() {
-	err := syscall.Unmount("/proc", syscall.MNT_DETACH)
+	fmt.Printf("setting up proc mount\n")
+	err := syscall.Mount("proc", "/proc", "proc", 0, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	err = syscall.Mount("proc", "/proc", "proc", 0, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Printf("setting up sys mount\n")
 	err = syscall.Mount("sysfs", "/sys", "sysfs", 0, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
+	fmt.Printf("setting up dev mount\n")
 	err = syscall.Mount("tmpfs", "/dev", "tmpfs", 0, "")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
