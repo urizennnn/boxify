@@ -42,3 +42,4 @@ vendor/
 # Ignore venv
 myenv/
 venv/
+./boxify
