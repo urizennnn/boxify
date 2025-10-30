@@ -39,7 +39,7 @@ func parent() {
 }
 
 func child() {
-	syscall.Chroot("/tmp/boxify-root")
+	syscall.PivotRoot("/tmp/boxify-root", "/tmp/boxify-root/old")
 	syscall.Chdir("/")
 
 	cmd := exec.Command("/bin/sh")
