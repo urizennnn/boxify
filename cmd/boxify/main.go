@@ -7,6 +7,7 @@ import (
 
 	"github.com/urizennnn/boxify/pkg/container"
 
+	"github.com/urizennnn/boxify/pkg/cgroup"
 	syscall "golang.org/x/sys/unix"
 )
 
@@ -20,6 +21,7 @@ func main() {
 }
 
 func parent() {
+
 	cmd := exec.Command("/proc/self/exe", "child")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
@@ -34,10 +36,14 @@ func parent() {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+	pid := cmd.Process.Pid
+	cgroup.SetupCgroupsV2(pid)
+	cmd.Wait()
+	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 }
 
 func child() {
