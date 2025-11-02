@@ -1,7 +1,7 @@
 .PHONY: setup clean
 
 ALPINE_TAR := alpine-minirootfs-3.19.0-x86_64.tar.gz
-ROOTFS_DIR := /tmp/alpine-rootfs
+ROOTFS_DIR := /tmp/boxify-rootfs
 
 setup:
 	@echo "Creating rootfs directory at $(ROOTFS_DIR)..."

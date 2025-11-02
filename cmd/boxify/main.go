@@ -12,16 +12,26 @@ import (
 )
 
 func main() {
+	memory := "100m"
+	cpu := "50"
+
+	for i, arg := range os.Args {
+		if arg == "--memory" && i+1 < len(os.Args) {
+			memory = os.Args[i+1]
+		}
+		if arg == "--cpu" && i+1 < len(os.Args) {
+			cpu = os.Args[i+1]
+		}
+	}
 	switch os.Args[1] {
 	case "run":
-		parent()
+		parent(memory, cpu)
 	case "child":
 		child()
 	}
 }
 
-func parent() {
-
+func parent(memory, cpu string) {
 	cmd := exec.Command("/proc/self/exe", "child")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
@@ -41,17 +51,19 @@ func parent() {
 		os.Exit(1)
 	}
 	pid := cmd.Process.Pid
-	cgroup.SetupCgroupsV2(pid)
+	cgroup.SetupCgroupsV2(pid,memory,cpu)
 	cmd.Wait()
-	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 }
 
 func child() {
+
 	err, containerID := container.InitContainer()
 
 	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
 	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
 	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
+	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed in creating overlay FS %v\n", err)
 		os.Exit(1)

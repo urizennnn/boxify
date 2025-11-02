@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+
 func CreateOverlayFS() (error, string) {
 	containerID := uuid.New().String()
 	upperDir := "/tmp/boxify-container/" + containerID + "/upper"
@@ -32,8 +33,7 @@ func CreateOverlayFS() (error, string) {
 		fmt.Fprintf(os.Stderr, "Error: error creating directory for mergedDir %v\n", err)
 		return err, ""
 	}
-
-	opts := fmt.Sprintf("lowerdir=/tmp/boxify-root,upperdir=%s,workdir=%s", upperDir, workDir)
+	opts := fmt.Sprintf("lowerdir=/tmp/boxify-rootfs,upperdir=%s,workdir=%s", upperDir, workDir)
 	fmt.Printf("mounting %v\n", mergedDir)
 	err = syscall.Mount("overlay", mergedDir, "overlay", 0, opts)
 	if err != nil {
@@ -49,7 +49,7 @@ func CreateOverlayFS() (error, string) {
 	}
 
 	fmt.Printf("pivoting\n")
-	err = syscall.PivotRoot(mergedDir,oldRoot)
+	err = syscall.PivotRoot(mergedDir, oldRoot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: error in pivot function %v\n", err)
 		return err, ""
@@ -60,7 +60,7 @@ func CreateOverlayFS() (error, string) {
 		fmt.Fprintf(os.Stderr, "Error: error in pivot function %v\n", err)
 		return err, ""
 	}
-fmt.Printf("done\n")
+	fmt.Printf("done\n")
 
 	return nil, containerID
 }
