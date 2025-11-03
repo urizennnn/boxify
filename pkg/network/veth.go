@@ -10,19 +10,35 @@ func (m *VethManager) CreateVethPairAndAttachToHostBridge(containerID string, br
 	hostName := "veth-" + containerID[:8]
 	containerName := "vethc-" + containerID[:8]
 
-	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: hostName,
-		},
-		PeerName: containerName,
-	}
+	existingLink, err := LinkExists(hostName)
+	var veth *netlink.Veth
 
-	if err := netlink.LinkAdd(veth); err != nil {
-		return "", "", err
+	if err == nil {
+		existingVeth, ok := existingLink.(*netlink.Veth)
+		if ok {
+			veth = existingVeth
+		} else {
+			veth = &netlink.Veth{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: hostName,
+				},
+				PeerName: containerName,
+			}
+		}
+	} else {
+		veth = &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: hostName,
+			},
+			PeerName: containerName,
+		}
+		if err := netlink.LinkAdd(veth); err != nil {
+			return "", "", err
+		}
 	}
 	bridgeManagerDetails := bridge.ReturnBridgeDetails()
 
-	err := netlink.LinkSetMaster(veth, bridgeManagerDetails.bridgeInstance)
+	err = netlink.LinkSetMaster(veth, bridgeManagerDetails.bridgeInstance)
 	if err != nil {
 		fmt.Printf("could not set link master, %v\n", err)
 		return "", "", err

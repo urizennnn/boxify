@@ -1,15 +1,11 @@
 package main
 
-import "net"
+import (
+"net"
+	"github.com/urizennnn/boxify/pkg/daemon"
+)
 
-type Daemon struct {
-	networkMgr *network.Manager
-	containers map[string]*Container 
-	listener   net.Listener
-	stopChan   chan struct{}
-}
-
-func (d *Daemon) Start() error {
+func (d *daemon.Daemon) Start() error {
 	// Initialize network
 	d.networkMgr.Initialize()
 

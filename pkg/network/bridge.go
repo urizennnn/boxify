@@ -2,23 +2,36 @@ package network
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/vishvananda/netlink"
 )
 
 func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 	la := netlink.NewLinkAttrs()
-	la.Name = "boxify-bridge"
+	la.Name = "boxify-bridge0"
 	m.defaultBridge = la.Name
-	boxifyBridge := &netlink.Bridge{LinkAttrs: la}
-	m.bridgeInstance = boxifyBridge
-	err := netlink.LinkAdd(boxifyBridge)
-	if err != nil {
-		fmt.Printf("could not add %s: %v\n", la.Name, err)
-		return err
+
+	existingLink, err := LinkExists(la.Name)
+	if err == nil {
+		bridge, ok := existingLink.(*netlink.Bridge)
+		if ok {
+			m.bridgeInstance = bridge
+		} else {
+			boxifyBridge := &netlink.Bridge{LinkAttrs: la}
+			m.bridgeInstance = boxifyBridge
+		}
+	} else {
+		boxifyBridge := &netlink.Bridge{LinkAttrs: la}
+		m.bridgeInstance = boxifyBridge
+		err := netlink.LinkAdd(boxifyBridge)
+		if err != nil {
+			fmt.Printf("could not add %s: %v\n", la.Name, err)
+			return err
+		}
 	}
 
-	err = netlink.LinkSetUp(boxifyBridge)
+	err = netlink.LinkSetUp(m.bridgeInstance)
 	if err != nil {
 		fmt.Printf("could not set up %s: %v\n", la.Name, err)
 		return err
@@ -30,13 +43,13 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 		return err
 	}
 
-	err = netlink.AddrAdd(boxifyBridge, addr)
+	err = netlink.AddrAdd(m.bridgeInstance, addr)
 	if err != nil {
 		fmt.Printf("could not add ip addr to bridge, %v", err)
 		return err
 	}
-	ip.nextIP = ip.IncrementIp(ip.GetGateway())
-	ip.allocated[la.Name] = ip.gateway
+	ip.nextIP = ip.IncrementIp(string(ip.nextIP))
+	ip.allocated[la.Name] = net.IP(nonConflictingAddr)
 
 	return nil
 }
@@ -59,6 +72,7 @@ func (m *BridgeManager) AttachIpToBridge(ipAddr string) error {
 	}
 	return nil
 }
+
 func (m *BridgeManager) ReturnBridgeDetails() *BridgeManager {
 	return m
 }
@@ -77,7 +91,6 @@ func (m *BridgeManager) BringDownBridge() error {
 	return nil
 }
 
-
 func (m *BridgeManager) BringUpBridge() error {
 	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
 	if err != nil {
@@ -92,8 +105,6 @@ func (m *BridgeManager) BringUpBridge() error {
 	return nil
 }
 
-
-
 func (m *BridgeManager) DeleteBridge() error {
 	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
 	if err != nil {
@@ -107,4 +118,3 @@ func (m *BridgeManager) DeleteBridge() error {
 	}
 	return nil
 }
-

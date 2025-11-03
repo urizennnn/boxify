@@ -23,3 +23,9 @@ type BridgeManager struct {
 type VethManager struct{
 	veths map[string][2]string
 }
+
+type NetworkManager struct {
+	bridgeManager *BridgeManager
+	ipManager     *IPManager
+	vethManager   *VethManager
+}
