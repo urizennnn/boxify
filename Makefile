@@ -14,3 +14,10 @@ clean:
 	@echo "Cleaning up rootfs directory..."
 	rm -rf $(ROOTFS_DIR)
 	@echo "Cleaned up $(ROOTFS_DIR)"
+
+run:
+	@echo "Building boxify"
+	go build -o boxify ./cmd/boxify/main.go
+	@echo "Boxify binary built"
+	@echo "Starting application"
+	sudo ./boxify run --memory 1m --cpu=1 

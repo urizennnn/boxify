@@ -5,9 +5,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/urizennnn/boxify/pkg/container"
-
 	"github.com/urizennnn/boxify/pkg/cgroup"
+	"github.com/urizennnn/boxify/pkg/container"
 	syscall "golang.org/x/sys/unix"
 )
 
@@ -51,12 +50,11 @@ func parent(memory, cpu string) {
 		os.Exit(1)
 	}
 	pid := cmd.Process.Pid
-	cgroup.SetupCgroupsV2(pid,memory,cpu)
+	cgroup.SetupCgroupsV2(pid, memory, cpu)
 	cmd.Wait()
 }
 
 func child() {
-
 	err, containerID := container.InitContainer()
 
 	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
