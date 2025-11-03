@@ -7,18 +7,18 @@ import (
 )
 
 type IPManager struct {
-	bridgeCIDR string
-	gateway    net.IP
-	nextIP     net.IP
-	allocated  map[string]net.IP
+	BridgeCIDR string
+	Gateway    net.IP
+	NextIP     net.IP
+	Allocated  map[string]net.IP
 }
 
 type BridgeManager struct {
-	defaultBridge  string
-	bridgeIP       string
-	bridgeInstance netlink.Link
-	containerIps   map[string]string
-	status         string
+	DefaultBridge  string
+	BridgeIP       string
+	BridgeInstance netlink.Link
+	ContainerIps   map[string]string
+	Status         string
 }
 
 type VethManager struct {
@@ -26,13 +26,13 @@ type VethManager struct {
 }
 
 type NatManager struct {
-	bridgeManager *BridgeManager
-	ipManager     *IPManager
+	BridgeManager *BridgeManager
+	IpManager     *IPManager
 }
 
 type NetworkManager struct {
-	bridgeManager *BridgeManager
-	ipManager     *IPManager
-	vethManager   *VethManager
-	natManager    *NatManager
+	BridgeManager *BridgeManager
+	IpManager     *IPManager
+	VethManager   *VethManager
+	NatManager    *NatManager
 }

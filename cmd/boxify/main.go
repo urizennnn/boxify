@@ -1,103 +1,91 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
 	"os"
-	"os/exec"
 
-	"github.com/urizennnn/boxify/pkg/cgroup"
-	"github.com/urizennnn/boxify/pkg/container"
-	syscall "golang.org/x/sys/unix"
+	"gopkg.in/yaml.v3"
+
+	"github.com/urizennnn/boxify/config"
+	"github.com/urizennnn/boxify/pkg/daemon/requests"
 )
 
 func main() {
-	memory := "100m"
-	cpu := "50"
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", "/var/run/boxify.sock")
+			},
+		},
+	}
+	requestedConfig, err := parseConfigFile()
+	if err != nil {
+		log.Fatalf("Failed to parse config file: %v", err)
+		return
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Failed to get current working directory: %v", err)
+		return
+	}
+	reqBody := requests.InitContainerRequest{
+		Name:         requestedConfig.ImageName,
+		OriginFolder: cwd,
+		MemoryLimit:  requestedConfig.Settings.MemoryLimit,
+		CpuLimit:     requestedConfig.Settings.CpuLimit,
+	}
 
-	for i, arg := range os.Args {
-		if arg == "--memory" && i+1 < len(os.Args) {
-			memory = os.Args[i+1]
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		log.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	resp, err := client.Post(
+		"http://unix/containers/create",
+		"application/json",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		log.Fatalf("Failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		log.Fatalf("Request failed with status: %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		log.Printf("Failed to decode response: %v", err)
+	}
+
+	fmt.Printf("Container created successfully: %+v\n", result)
+}
+
+func parseConfigFile() (config.ConfigStructure, error) {
+	yamlFile, err := os.ReadFile("boxify.yaml")
+	if err != nil {
+		yamlFile, err = os.ReadFile("boxify.yml")
+		if err != nil {
+			log.Fatalf("Config file not found: %v", err)
+			return config.ConfigStructure{}, err
 		}
-		if arg == "--cpu" && i+1 < len(os.Args) {
-			cpu = os.Args[i+1]
-		}
+		log.Fatalf("Failed to open config file: %v", err)
+		return config.ConfigStructure{}, err
 	}
-	switch os.Args[1] {
-	case "run":
-		parent(memory, cpu)
-	case "child":
-		child()
-	}
-}
-
-func parent(memory, cpu string) {
-	cmd := exec.Command("/proc/self/exe", "child")
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWIPC |
-			syscall.CLONE_NEWNET |
-			syscall.CLONE_NEWNS,
-
-		Unshareflags: syscall.CLONE_NEWNS,
-	}
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	pid := cmd.Process.Pid
-	cgroup.SetupCgroupsV2(pid, memory, cpu)
-	cmd.Wait()
-}
-
-func child() {
-	err, containerID := container.InitContainer()
-
-	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
-	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
-	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
-	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
-
+	var fileConfig config.ConfigStructure
+	err = yaml.Unmarshal(yamlFile, &fileConfig)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed in creating overlay FS %v\n", err)
-		os.Exit(1)
-	}
-	setupMounts()
-
-	cmd := exec.Command("/bin/sh")
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Env = []string{"PATH=/bin:/usr/bin:/sbin:/usr/sbin"}
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("Container exiting...")
-}
-
-func setupMounts() {
-	fmt.Printf("setting up proc mount\n")
-	err := syscall.Mount("proc", "/proc", "proc", 0, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("setting up sys mount\n")
-	err = syscall.Mount("sysfs", "/sys", "sysfs", 0, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error unmarshaling YAML: %v", err)
+		return config.ConfigStructure{}, err
 	}
 
-	fmt.Printf("setting up dev mount\n")
-	err = syscall.Mount("tmpfs", "/dev", "tmpfs", 0, "")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Printf("Parsed config: %+v\n", fileConfig)
+	return fileConfig, nil
 }

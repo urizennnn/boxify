@@ -10,20 +10,20 @@ import (
 func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 	la := netlink.NewLinkAttrs()
 	la.Name = "boxify-bridge0"
-	m.defaultBridge = la.Name
+	m.DefaultBridge = la.Name
 
 	existingLink, err := LinkExists(la.Name)
 	if err == nil {
 		bridge, ok := existingLink.(*netlink.Bridge)
 		if ok {
-			m.bridgeInstance = bridge
+			m.BridgeInstance = bridge
 		} else {
 			boxifyBridge := &netlink.Bridge{LinkAttrs: la}
-			m.bridgeInstance = boxifyBridge
+			m.BridgeInstance = boxifyBridge
 		}
 	} else {
 		boxifyBridge := &netlink.Bridge{LinkAttrs: la}
-		m.bridgeInstance = boxifyBridge
+		m.BridgeInstance = boxifyBridge
 		err := netlink.LinkAdd(boxifyBridge)
 		if err != nil {
 			fmt.Printf("could not add %s: %v\n", la.Name, err)
@@ -31,7 +31,7 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 		}
 	}
 
-	err = netlink.LinkSetUp(m.bridgeInstance)
+	err = netlink.LinkSetUp(m.BridgeInstance)
 	if err != nil {
 		fmt.Printf("could not set up %s: %v\n", la.Name, err)
 		return err
@@ -43,21 +43,21 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 		return err
 	}
 
-	err = netlink.AddrAdd(m.bridgeInstance, addr)
+	err = netlink.AddrAdd(m.BridgeInstance, addr)
 	if err != nil {
 		fmt.Printf("could not add ip addr to bridge, %v", err)
 		return err
 	}
-	ip.nextIP = ip.IncrementIp(string(ip.nextIP))
-	ip.allocated[la.Name] = net.IP(nonConflictingAddr)
+	ip.NextIP = ip.IncrementIp(string(ip.NextIP))
+	ip.Allocated[la.Name] = net.IP(nonConflictingAddr)
 
 	return nil
 }
 
 func (m *BridgeManager) AttachIpToBridge(ipAddr string) error {
-	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
+	bridgeLink, err := netlink.LinkByName(m.DefaultBridge)
 	if err != nil {
-		fmt.Printf("could not find bridge %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not find bridge %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	addr, err := netlink.ParseAddr(ipAddr)
@@ -78,42 +78,42 @@ func (m *BridgeManager) ReturnBridgeDetails() *BridgeManager {
 }
 
 func (m *BridgeManager) BringDownBridge() error {
-	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
+	bridgeLink, err := netlink.LinkByName(m.DefaultBridge)
 	if err != nil {
-		fmt.Printf("could not find bridge %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not find bridge %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	err = netlink.LinkSetDown(bridgeLink)
 	if err != nil {
-		fmt.Printf("could not bring bridge down %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not bring bridge down %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	return nil
 }
 
 func (m *BridgeManager) BringUpBridge() error {
-	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
+	bridgeLink, err := netlink.LinkByName(m.DefaultBridge)
 	if err != nil {
-		fmt.Printf("could not find bridge %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not find bridge %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	err = netlink.LinkSetUp(bridgeLink)
 	if err != nil {
-		fmt.Printf("could not bring bridge up %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not bring bridge up %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	return nil
 }
 
 func (m *BridgeManager) DeleteBridge() error {
-	bridgeLink, err := netlink.LinkByName(m.defaultBridge)
+	bridgeLink, err := netlink.LinkByName(m.DefaultBridge)
 	if err != nil {
-		fmt.Printf("could not find bridge %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not find bridge %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	err = netlink.LinkDel(bridgeLink)
 	if err != nil {
-		fmt.Printf("could not delete bridge %s: %v\n", m.defaultBridge, err)
+		fmt.Printf("could not delete bridge %s: %v\n", m.DefaultBridge, err)
 		return err
 	}
 	return nil

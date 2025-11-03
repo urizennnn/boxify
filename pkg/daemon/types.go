@@ -1,29 +1,37 @@
 package daemon
 
 import (
+	"fmt"
 	"sync"
-	"time"
+
+	"github.com/urizennnn/boxify/pkg/daemon/types"
+	"github.com/urizennnn/boxify/pkg/network"
 )
 
-type Container struct {
-	ID          string
-	PID         int
-	Image       string
-	Command     []string
-	NetworkInfo *NetworkInfo
-	CreatedAt   time.Time
-	Status      string
-}
-
-type NetworkInfo struct {
-	IP            string
-	Gateway       string
-	Bridge        string
-	HostVeth      string
-	ContainerVeth string
-}
-
 type Daemon struct {
-	containers map[string]*Container
+	containers map[string]*types.Container
 	mu         sync.RWMutex
+	networkMgr *network.NetworkManager
+}
+
+func New() *Daemon {
+	networkMgr, err := network.NewNetworkManager()
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize network manager: %v", err))
+	}
+
+	return &Daemon{
+		containers: make(map[string]*types.Container),
+		networkMgr: networkMgr,
+	}
+}
+
+func (d *Daemon) AddContainer(container *types.Container) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.containers[container.ID] = container
+}
+
+func (d *Daemon) NetworkManager() *network.NetworkManager {
+	return d.networkMgr
 }

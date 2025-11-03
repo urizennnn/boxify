@@ -1,0 +1,15 @@
+[Unit]
+Description=Boxify Container Runtime Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/boxifyd
+Restart=on-failure
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

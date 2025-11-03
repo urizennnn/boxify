@@ -11,14 +11,14 @@ import (
 // func (m *IPManager) AllocateIP(containerID string) (string, error)
 
 func (m *IPManager) GetNextIP() string {
-	return m.nextIP.String()
+	return m.NextIP.String()
 }
 
 func (m *IPManager) GetIpDetails() *IPManager {
 	return m
 }
 func (m *IPManager) GetGateway() string {
-	return m.gateway.String()
+	return m.Gateway.String()
 }
 
 
@@ -83,9 +83,9 @@ func (m *IPManager) InitIPManager() (string, error) {
 
 	for _, candidate := range candidates {
 		if !isNetworkConflict(candidate, hostNetworks) {
-			m.bridgeCIDR = "/16"
-			m.gateway, _, _ = net.ParseCIDR(candidate)
-			m.nextIP = m.IncrementIp(m.gateway.String())
+			m.BridgeCIDR = "/16"
+			m.Gateway, _, _ = net.ParseCIDR(candidate)
+			m.NextIP = m.IncrementIp(m.Gateway.String())
 		}
 	}
 

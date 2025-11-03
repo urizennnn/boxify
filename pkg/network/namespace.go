@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/urizennnn/boxify/pkg/daemon"
+	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/vishvananda/netlink"
 )
 
-func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, containerId string, damon *daemon.Daemon) error {
+// ContainerGetter interface for getting container information
+type ContainerGetter interface {
+	GetContainer(id string) (*types.Container, error)
+}
+
+func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
 		return fmt.Errorf("could not get container %v: %v", containerId, err)
@@ -28,7 +33,7 @@ func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, contain
 	return nil
 }
 
-func (m *NetworkManager) RenameVethInContainerNamespace(newName string, containerId string, damon *daemon.Daemon) error {
+func (m *NetworkManager) RenameVethInContainerNamespace(newName string, containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
 		return fmt.Errorf("could not get container %v: %v", containerId, err)
@@ -47,7 +52,7 @@ func (m *NetworkManager) RenameVethInContainerNamespace(newName string, containe
 	return nil
 }
 
-func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, damon *daemon.Daemon) error {
+func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
 		return fmt.Errorf("could not get container %v: %v", containerId, err)
@@ -58,7 +63,7 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 		return fmt.Errorf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
 	}
 
-	ipAddr := m.ipManager.GetNextIP()
+	ipAddr := m.IpManager.GetNextIP()
 	if ipAddr == "" {
 		return fmt.Errorf("container %v does not have an IP address", containerId)
 	}
@@ -77,14 +82,16 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 		fmt.Printf("could not set link up, %v\n", err)
 		return err
 	}
-	dst := &net.IPNet{
-		IP:   net.IPv4zero,
-		Mask: net.CIDRMask(0, 32),
+
+	gateway := container.NetworkInfo.Gateway
+	gw := net.ParseIP(gateway)
+	_, dstNet, err := net.ParseCIDR("0.0.0.0/0")
+	if err != nil {
+		return fmt.Errorf("failed to parse default route CIDR: %v", err)
 	}
-	gw := net.ParseIP(ipAddr)
 
 	route := &netlink.Route{
-		Dst:       dst,
+		Dst:       dstNet,
 		Gw:        gw,
 		LinkIndex: containerVeth.Attrs().Index,
 	}
@@ -96,7 +103,7 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 }
 
 
-func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, damon *daemon.Daemon) error {
+func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, damon ContainerGetter) error {
 	la := netlink.NewLinkAttrs()
 	la.Name = "lo"
 
@@ -120,7 +127,7 @@ func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, 
 	return nil
 }
 
-func (m *NetworkManager) SetupContainerInterface(containerId string, damon *daemon.Daemon) error {
+func (m *NetworkManager) SetupContainerInterface(containerId string, damon ContainerGetter) error {
 	err := m.RenameVethInContainerNamespace("eth0", containerId, damon)
 	if err != nil {
 		return fmt.Errorf("failed to rename veth to eth0: %v", err)
@@ -135,7 +142,7 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon *daem
 	if err != nil {
 		return fmt.Errorf("failed to setup loopback interface: %v", err)
 	}
-	if err = m.natManager.EnableNat(); err != nil {
+	if err = m.NatManager.EnableNat(); err != nil {
 		return fmt.Errorf("failed to enable NAT: %v", err)
 	}
 

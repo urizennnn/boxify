@@ -17,9 +17,9 @@ func (m *NatManager) enableIPForwarding() error {
 
 // TODO: switch away from masquerading to SNAT with specific IP
 func (m *NatManager) setupMasquerading() error {
-	bridgeDetails := m.bridgeManager.ReturnBridgeDetails()
-	ipCidr := m.ipManager.GetIpDetails()
-	cmd := exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", ipCidr.bridgeCIDR, "!", "-o", bridgeDetails.defaultBridge, "-j", "MASQUERADE")
+	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
+	ipCidr := m.IpManager.GetIpDetails()
+	cmd := exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", ipCidr.BridgeCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -30,9 +30,9 @@ func (m *NatManager) setupMasquerading() error {
 }
 
 func (m *NatManager) SetupForwardingRules() error {
-	bridgeDetails := m.bridgeManager.ReturnBridgeDetails()
+	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 
-	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", bridgeDetails.defaultBridge, "-o", bridgeDetails.defaultBridge, "-j", "ACCEPT")
+	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", bridgeDetails.DefaultBridge, "-o", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error setting up forwarding rules: %v", err)
 	}
@@ -40,9 +40,9 @@ func (m *NatManager) SetupForwardingRules() error {
 }
 
 func (m *NatManager) RemoveMasquerading() error {
-	bridgeDetails := m.bridgeManager.ReturnBridgeDetails()
+	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 
-	cmd := exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-s", m.ipManager.GetIpDetails().bridgeCIDR, "!", "-o", bridgeDetails.defaultBridge, "-j", "MASQUERADE")
+	cmd := exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-s", m.IpManager.GetIpDetails().BridgeCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("Error removing masquerading: %v", err)
 	}

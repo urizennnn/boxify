@@ -1,0 +1,5 @@
+image_name: nodejs
+settings:
+     memory_limit: 100m
+     cpu_limit: 2
+

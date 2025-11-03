@@ -38,7 +38,7 @@ func (m *VethManager) CreateVethPairAndAttachToHostBridge(containerID string, br
 	}
 	bridgeManagerDetails := bridge.ReturnBridgeDetails()
 
-	err = netlink.LinkSetMaster(veth, bridgeManagerDetails.bridgeInstance)
+	err = netlink.LinkSetMaster(veth, bridgeManagerDetails.BridgeInstance)
 	if err != nil {
 		fmt.Printf("could not set link master, %v\n", err)
 		return "", "", err
