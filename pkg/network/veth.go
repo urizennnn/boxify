@@ -1,7 +1,7 @@
 package network
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/vishvananda/netlink"
 )
@@ -40,13 +40,13 @@ func (m *VethManager) CreateVethPairAndAttachToHostBridge(containerID string, br
 
 	err = netlink.LinkSetMaster(veth, bridgeManagerDetails.BridgeInstance)
 	if err != nil {
-		fmt.Printf("could not set link master, %v\n", err)
+		log.Printf("could not set link master, %v\n", err)
 		return "", "", err
 	}
 
 	err = netlink.LinkSetUp(veth)
 	if err != nil {
-		fmt.Printf("could not set link up, %v\n", err)
+		log.Printf("could not set link up, %v\n", err)
 		return "", "", err
 	}
 	m.veths[containerID] = [2]string{hostName, containerName}
@@ -56,18 +56,19 @@ func (m *VethManager) CreateVethPairAndAttachToHostBridge(containerID string, br
 func (m *VethManager) DeleteVethPair(containerID string) error {
 	vethNames, exists := m.veths[containerID]
 	if !exists {
-		return fmt.Errorf("veth pair not found for container ID: %s", containerID)
+		log.Printf("veth pair not found for container ID: %s", containerID)
+		return nil
 	}
 
 	for _, vethName := range vethNames {
 		veth, err := netlink.LinkByName(vethName)
 		if err != nil {
-			fmt.Printf("could not find link by name, %v\n", err)
+			log.Printf("could not find link by name, %v\n", err)
 			return err
 		}
 
 		if err := netlink.LinkDel(veth); err != nil {
-			fmt.Printf("could not delete link, %v\n", err)
+			log.Printf("could not delete link, %v\n", err)
 			return err
 		}
 	}

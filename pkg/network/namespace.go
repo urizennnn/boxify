@@ -1,7 +1,7 @@
 package network
 
 import (
-	"fmt"
+	"log"
 	"net"
 
 	"github.com/urizennnn/boxify/pkg/daemon/types"
@@ -16,18 +16,20 @@ type ContainerGetter interface {
 func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
-		return fmt.Errorf("could not get container %v: %v", containerId, err)
+		log.Printf("could not get container %v: %v", containerId, err)
+		return nil
 	}
 	containerVeth, err := netlink.LinkByName(container.NetworkInfo.ContainerVeth)
 	if err != nil {
-		return fmt.Errorf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		log.Printf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		return nil
 	}
 
 	err = netlink.LinkSetNsPid(
 		containerVeth, container.PID,
 	)
 	if err != nil {
-		fmt.Printf("could not move veth %s into namespace %d: %v\n", vethName, container.PID, err)
+		log.Printf("could not move veth %s into namespace %d: %v\n", vethName, container.PID, err)
 		return err
 	}
 	return nil
@@ -36,17 +38,20 @@ func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, contain
 func (m *NetworkManager) RenameVethInContainerNamespace(newName string, containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
-		return fmt.Errorf("could not get container %v: %v", containerId, err)
+		log.Printf("could not get container %v: %v", containerId, err)
+		return nil
 	}
 
 	containerVeth, err := netlink.LinkByName(container.NetworkInfo.ContainerVeth)
 	if err != nil {
-		return fmt.Errorf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		log.Printf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		return nil
 	}
 
 	err = netlink.LinkSetName(containerVeth, newName)
 	if err != nil {
-		return fmt.Errorf("could not rename veth %s to %s: %v", container.NetworkInfo.ContainerVeth, newName, err)
+		log.Printf("could not rename veth %s to %s: %v", container.NetworkInfo.ContainerVeth, newName, err)
+		return nil
 	}
 
 	return nil
@@ -55,31 +60,35 @@ func (m *NetworkManager) RenameVethInContainerNamespace(newName string, containe
 func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, damon ContainerGetter) error {
 	container, err := damon.GetContainer(containerId)
 	if err != nil {
-		return fmt.Errorf("could not get container %v: %v", containerId, err)
+		log.Printf("could not get container %v: %v", containerId, err)
+		return nil
 	}
 
 	containerVeth, err := netlink.LinkByName(container.NetworkInfo.ContainerVeth)
 	if err != nil {
-		return fmt.Errorf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		log.Printf("could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		return nil
 	}
 
 	ipAddr := m.IpManager.GetNextIP()
 	if ipAddr == "" {
-		return fmt.Errorf("container %v does not have an IP address", containerId)
+		log.Printf("container %v does not have an IP address", containerId)
+		return nil
 	}
 	addr, err := netlink.ParseAddr(ipAddr)
 	if err != nil {
-		fmt.Printf("failed to parse addr, %v\n", err)
+		log.Printf("failed to parse addr, %v\n", err)
 		return err
 	}
 
 	err = netlink.AddrAdd(containerVeth, addr)
 	if err != nil {
-		return fmt.Errorf("could not assign IP address %s to veth %s: %v", ipAddr, container.NetworkInfo.ContainerVeth, err)
+		log.Printf("could not assign IP address %s to veth %s: %v", ipAddr, container.NetworkInfo.ContainerVeth, err)
+		return nil
 	}
 	err = netlink.LinkSetUp(containerVeth)
 	if err != nil {
-		fmt.Printf("could not set link up, %v\n", err)
+		log.Printf("could not set link up, %v\n", err)
 		return err
 	}
 
@@ -87,7 +96,8 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 	gw := net.ParseIP(gateway)
 	_, dstNet, err := net.ParseCIDR("0.0.0.0/0")
 	if err != nil {
-		return fmt.Errorf("failed to parse default route CIDR: %v", err)
+		log.Printf("failed to parse default route CIDR: %v", err)
+		return nil
 	}
 
 	route := &netlink.Route{
@@ -96,7 +106,7 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 		LinkIndex: containerVeth.Attrs().Index,
 	}
 	if err = netlink.RouteAdd(route); err != nil {
-		fmt.Printf("could not add route, %v\n", err)
+		log.Printf("could not add route, %v\n", err)
 		return err
 	}
 	return nil
@@ -111,17 +121,20 @@ func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, 
 	if err == nil {
 		err = netlink.LinkSetUp(existingLink)
 		if err != nil {
-			return fmt.Errorf("could not set up loopback interface: %v", err)
+			log.Printf("could not set up loopback interface: %v", err)
+			return nil
 		}
 	} else {
 		loopback := netlink.Device{LinkAttrs: la}
 		err := netlink.LinkAdd(&loopback)
 		if err != nil {
-			return fmt.Errorf("could not add loopback interface: %v", err)
+			log.Printf("could not add loopback interface: %v", err)
+			return nil
 		}
 		err = netlink.LinkSetUp(&loopback)
 		if err != nil {
-			return fmt.Errorf("could not set up loopback interface: %v", err)
+			log.Printf("could not set up loopback interface: %v", err)
+			return nil
 		}
 	}
 	return nil
@@ -130,20 +143,24 @@ func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, 
 func (m *NetworkManager) SetupContainerInterface(containerId string, damon ContainerGetter) error {
 	err := m.RenameVethInContainerNamespace("eth0", containerId, damon)
 	if err != nil {
-		return fmt.Errorf("failed to rename veth to eth0: %v", err)
+		log.Printf("failed to rename veth to eth0: %v", err)
+		return nil
 	}
 
 	err = m.AssignIPToVethInContainerNamespace(containerId, damon)
 	if err != nil {
-		return fmt.Errorf("failed to assign IP and configure interface: %v", err)
+		log.Printf("failed to assign IP and configure interface: %v", err)
+		return nil
 	}
 
 	err = m.CreateLoopbackInContainerNamespace(containerId, damon)
 	if err != nil {
-		return fmt.Errorf("failed to setup loopback interface: %v", err)
+		log.Printf("failed to setup loopback interface: %v", err)
+		return nil
 	}
 	if err = m.NatManager.EnableNat(); err != nil {
-		return fmt.Errorf("failed to enable NAT: %v", err)
+		log.Printf("failed to enable NAT: %v", err)
+		return nil
 	}
 
 	return nil

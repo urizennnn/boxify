@@ -1,7 +1,7 @@
 package daemon
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/urizennnn/boxify/pkg/daemon/handlers"
@@ -14,7 +14,7 @@ func (m *Daemon) GetContainer(id string) (*types.Container, error) {
 
 	container, exists := m.containers[id]
 	if !exists {
-		return nil, fmt.Errorf("container not found")
+		return nil, errors.New("container not found")
 	}
 	return container, nil
 }

@@ -1,11 +1,11 @@
 package daemon
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 func (d *Daemon) Init() {
@@ -29,6 +29,7 @@ func (d *Daemon) Init() {
 	if err := os.Chmod("/var/run/boxify.sock", 0o660); err != nil {
 		log.Fatalf("Failed to set permissions: %v", err)
 	}
+
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/containers/create", d.HandleCreateRequest)
@@ -60,7 +61,7 @@ func setupLogging() {
 
 func writePIDFile() error {
 	pid := os.Getpid()
-	pidStr := fmt.Sprintf("%d", pid)
+	pidStr := strconv.Itoa(pid)
 
 	return os.WriteFile("/var/run/boxify.pid",
 		[]byte(pidStr), 0o644)

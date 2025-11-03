@@ -2,7 +2,7 @@ package network
 //TODO: implement port forwarding rules at a later time
 
 import (
-	"fmt"
+	"log"
 	"os/exec"
 )
 
@@ -10,7 +10,8 @@ func (m *NatManager) enableIPForwarding() error {
 	cmd := exec.Command("sysctl", "-w", "net.ipv4.ip_forward=1")
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error enabling IP forwarding: %v", err)
+		log.Printf("error enabling IP forwarding: %v", err)
+		return nil
 	}
 	return nil
 }
@@ -23,9 +24,10 @@ func (m *NatManager) setupMasquerading() error {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error setting up masquerading: %v, output: %s", err, out)
+		log.Printf("error setting up masquerading: %v, output: %s", err, out)
+		return nil
 	}
-	fmt.Printf("Masquerading setup output: %s\n", out)
+	log.Printf("Masquerading setup output: %s\n", out)
 	return nil
 }
 
@@ -34,7 +36,8 @@ func (m *NatManager) SetupForwardingRules() error {
 
 	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", bridgeDetails.DefaultBridge, "-o", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error setting up forwarding rules: %v", err)
+		log.Printf("error setting up forwarding rules: %v", err)
+		return nil
 	}
 	return nil
 }
@@ -44,20 +47,24 @@ func (m *NatManager) RemoveMasquerading() error {
 
 	cmd := exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-s", m.IpManager.GetIpDetails().BridgeCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Error removing masquerading: %v", err)
+		log.Printf("Error removing masquerading: %v", err)
+		return nil
 	}
 	return nil
 }
 
 func (m *NatManager) EnableNat() error {
 	if err := m.enableIPForwarding(); err != nil {
-		return fmt.Errorf("Error enabling IP forwarding: %v", err)
+		log.Printf("Error enabling IP forwarding: %v", err)
+		return nil
 	}
 	if err := m.setupMasquerading(); err != nil {
-		return fmt.Errorf("Error setting up masquerading: %v", err)
+		log.Printf("Error setting up masquerading: %v", err)
+		return nil
 	}
 	if err := m.SetupForwardingRules(); err != nil {
-		return fmt.Errorf("Error setting up forwarding rules: %v", err)
+		log.Printf("Error setting up forwarding rules: %v", err)
+		return nil
 	}
 	return nil
 }

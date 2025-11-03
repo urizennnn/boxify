@@ -1,7 +1,7 @@
 package network
 
 import (
-	"fmt"
+	"log"
 	"net"
 )
 
@@ -12,13 +12,15 @@ func NewNetworkManager() (*NetworkManager, error) {
 
 	_, err := ipManager.InitIPManager()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize IP manager: %v", err)
+		log.Printf("failed to initialize IP manager: %v", err)
+		return nil, nil
 	}
 
 	bridgeManager := &BridgeManager{}
 	err = bridgeManager.CreateBridgeWithIp(ipManager)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create bridge: %v", err)
+		log.Printf("failed to create bridge: %v", err)
+		return nil, nil
 	}
 
 	vethManager := &VethManager{

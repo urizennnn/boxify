@@ -1,7 +1,7 @@
 package daemon
 
 import (
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/urizennnn/boxify/pkg/daemon/types"
@@ -17,7 +17,7 @@ type Daemon struct {
 func New() *Daemon {
 	networkMgr, err := network.NewNetworkManager()
 	if err != nil {
-		panic(fmt.Sprintf("failed to initialize network manager: %v", err))
+		log.Fatalf("failed to initialize network manager: %v", err)
 	}
 
 	return &Daemon{

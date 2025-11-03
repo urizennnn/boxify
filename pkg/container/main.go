@@ -1,14 +1,13 @@
 package container
 
 import (
-	"fmt"
-	"os"
+	"log"
 )
 
 func InitContainer() (error,string){
 	err,containerID := CreateOverlayFS()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create overlay %v\n", err)
+		log.Printf("Error: failed to create overlay %v\n", err)
 		return err,""
 	}
 	return nil,containerID

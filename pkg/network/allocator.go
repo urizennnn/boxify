@@ -1,8 +1,9 @@
 package network
 
 import (
-	"fmt"
+	"log"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -17,10 +18,10 @@ func (m *IPManager) GetNextIP() string {
 func (m *IPManager) GetIpDetails() *IPManager {
 	return m
 }
+
 func (m *IPManager) GetGateway() string {
 	return m.Gateway.String()
 }
-
 
 func (m *IPManager) GetHostNetworks() ([]*net.IPNet, error) {
 	var networks []*net.IPNet
@@ -69,10 +70,13 @@ func isNetworkConflict(cidr string, existing []*net.IPNet) bool {
 }
 
 func (m *IPManager) InitIPManager() (string, error) {
+	log.Println("InitIPManager: Starting")
 	hostNetworks, err := m.GetHostNetworks()
 	if err != nil {
+		log.Printf("InitIPManager: Error getting host networks: %v", err)
 		return "", err
 	}
+	log.Printf("InitIPManager: Found %d host networks", len(hostNetworks))
 
 	candidates := []string{
 		"172.17.0.0/16",
@@ -82,23 +86,39 @@ func (m *IPManager) InitIPManager() (string, error) {
 	}
 
 	for _, candidate := range candidates {
+		log.Printf("InitIPManager: Checking candidate: %s", candidate)
 		if !isNetworkConflict(candidate, hostNetworks) {
+			log.Printf("InitIPManager: Using network: %s", candidate)
 			m.BridgeCIDR = "/16"
 			m.Gateway, _, _ = net.ParseCIDR(candidate)
+			log.Printf("InitIPManager: Gateway: %v", m.Gateway)
 			m.NextIP = m.IncrementIp(m.Gateway.String())
+			return candidate, nil
 		}
 	}
 
-	return "", fmt.Errorf("could not find non-conflicting network")
+	log.Println("InitIPManager: could not find non-conflicting network")
+	return "", nil
 }
 
 func (m *IPManager) IncrementIp(ip string) net.IP {
+	log.Printf("IncrementIp: Input IP: %s", ip)
 	splitString := strings.Split(ip, ".")
+	log.Printf("IncrementIp: Split IP into %d parts: %v", len(splitString), splitString)
 	for i := len(splitString) - 1; i >= 0; i-- {
 		if splitString[i] != "255" {
-			splitString[i] = fmt.Sprintf("%d", net.ParseIP(splitString[i]).To4()[i]+1)
+			log.Printf("IncrementIp: Incrementing octet at index %d: %s", i, splitString[i])
+			transformedInt, err := strconv.Atoi(splitString[i])
+			if err != nil {
+				log.Printf("IncrementIp: Error converting octet to int: %v", err)
+				return nil
+			}
+
+			splitString[i] = strconv.Itoa(transformedInt + 1)
 			break
 		}
 	}
-	return net.ParseIP(strings.Join(splitString, "."))
+	result := net.ParseIP(strings.Join(splitString, "."))
+	log.Printf("IncrementIp: Result: %v", result)
+	return result
 }

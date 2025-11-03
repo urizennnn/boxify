@@ -4,6 +4,7 @@ ALPINE_TAR := alpine-minirootfs-3.19.0-x86_64.tar.gz
 ROOTFS_DIR := /tmp/boxify-rootfs
 
 setup:
+	sudo systemctl stop boxifyd
 	@echo "Creating rootfs directory at $(ROOTFS_DIR)..."
 	mkdir -p $(ROOTFS_DIR)
 	@echo "Extracting Alpine minirootfs..."
@@ -16,6 +17,7 @@ setup:
 	cp ./boxify /usr/local/bin/boxify
 	chmod +x /usr/local/bin/boxifyd
 	chmod +x /usr/local/bin/boxify
+	sudo systemctl restart boxifyd
 
 
 

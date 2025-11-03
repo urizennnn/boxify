@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -48,7 +49,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	networkMgr := d.NetworkManager()
 	hostVeth, containerVeth, err := networkMgr.VethManager.CreateVethPairAndAttachToHostBridge(containerID, networkMgr.BridgeManager)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating veth pair: %v\n", err)
+		log.Printf("Error creating veth pair: %v\n", err)
 		return
 	}
 
@@ -70,7 +71,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 	pid := cmd.Process.Pid
@@ -94,23 +95,23 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	d.AddContainer(containerInfo)
 
 	if err := networkMgr.MoveVethIntoContainerNamespace(containerVeth, containerID, d); err != nil {
-		fmt.Fprintf(os.Stderr, "Error moving veth into namespace: %v\n", err)
+		log.Printf("Error moving veth into namespace: %v\n", err)
 		return
 	}
 
 	err = cgroup.SetupCgroupsV2(pid, memory, cpu)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error setting up cgroups: %v\n", err)
+		log.Printf("Error setting up cgroups: %v\n", err)
 		return
 	}
 
 	if err := saveContainerToJSON(containerInfo); err != nil {
-		fmt.Fprintf(os.Stderr, "Error saving container info: %v\n", err)
+		log.Printf("Error saving container info: %v\n", err)
 	}
 
 	err = cmd.Wait()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		return
 	}
 }
@@ -124,13 +125,13 @@ func child(d DaemonInterface, containerID, mem, cpu, containerVeth, gateway, ipA
 	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed in creating overlay FS %v\n", err)
+		log.Printf("Error: failed in creating overlay FS %v\n", err)
 		os.Exit(1)
 	}
 	setupMounts()
 
 	if err := d.NetworkManager().SetupContainerInterface(containerID, d); err != nil {
-		fmt.Fprintf(os.Stderr, "Error setting up network: %v\n", err)
+		log.Printf("Error setting up network: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -140,49 +141,49 @@ func child(d DaemonInterface, containerID, mem, cpu, containerVeth, gateway, ipA
 	cmd.Stdin = os.Stdin
 	cmd.Env = []string{"PATH=/bin:/usr/bin:/sbin:/usr/sbin"}
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Container exiting...")
+	log.Println("Container exiting...")
 }
 
 func saveContainerToJSON(container *types.Container) error {
 	dir := "/var/lib/boxify"
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory: %v", err)
+		return errors.New("failed to create directory: " + err.Error())
 	}
 
 	filePath := filepath.Join(dir, container.ID+".json")
 	data, err := json.MarshalIndent(container, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal container info: %v", err)
+		return errors.New("failed to marshal container info: " + err.Error())
 	}
 
 	if err := os.WriteFile(filePath, data, 0o644); err != nil {
-		return fmt.Errorf("failed to write container info: %v", err)
+		return errors.New("failed to write container info: " + err.Error())
 	}
 
 	return nil
 }
 
 func setupMounts() {
-	fmt.Printf("setting up proc mount\n")
+	log.Printf("setting up proc mount\n")
 	err := syscall.Mount("proc", "/proc", "proc", 0, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("setting up sys mount\n")
+	log.Printf("setting up sys mount\n")
 	err = syscall.Mount("sysfs", "/sys", "sysfs", 0, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("setting up dev mount\n")
+	log.Printf("setting up dev mount\n")
 	err = syscall.Mount("tmpfs", "/dev", "tmpfs", 0, "")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
