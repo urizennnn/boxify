@@ -14,6 +14,9 @@ func (m *IPManager) GetNextIP() string {
 	return m.nextIP.String()
 }
 
+func (m *IPManager) GetIpDetails() *IPManager {
+	return m
+}
 func (m *IPManager) GetGateway() string {
 	return m.gateway.String()
 }

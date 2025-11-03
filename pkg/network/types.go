@@ -18,14 +18,21 @@ type BridgeManager struct {
 	bridgeIP       string
 	bridgeInstance netlink.Link
 	containerIps   map[string]string
+	status         string
 }
 
-type VethManager struct{
+type VethManager struct {
 	veths map[string][2]string
+}
+
+type NatManager struct {
+	bridgeManager *BridgeManager
+	ipManager     *IPManager
 }
 
 type NetworkManager struct {
 	bridgeManager *BridgeManager
 	ipManager     *IPManager
 	vethManager   *VethManager
+	natManager    *NatManager
 }

@@ -135,6 +135,9 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon *daem
 	if err != nil {
 		return fmt.Errorf("failed to setup loopback interface: %v", err)
 	}
+	if err = m.natManager.EnableNat(); err != nil {
+		return fmt.Errorf("failed to enable NAT: %v", err)
+	}
 
 	return nil
 }
