@@ -13,13 +13,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/urizennnn/boxify/pkg/cgroup"
-	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/urizennnn/boxify/pkg/network"
 )
 
-// DaemonInterface defines the methods needed from the daemon
 type DaemonInterface interface {
 	AddContainer(container *types.Container)
 	GetContainer(id string) (*types.Container, error)
@@ -39,10 +37,6 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 	containerID := uuid.New().String()
 
 	parent(d, containerID, memory, cpu)
-	switch os.Args[1] {
-	case "child":
-		child(d, os.Args[2], os.Args[3], os.Args[4], os.Args[5], os.Args[6], os.Args[7])
-	}
 }
 
 func parent(d DaemonInterface, containerID, memory, cpu string) {
@@ -56,7 +50,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	gateway := networkMgr.IpManager.GetGateway()
 	nextIP := networkMgr.IpManager.GetNextIP()
 
-	cmd := exec.Command("/proc/self/exe", "child", containerID, memory, cpu, containerVeth, gateway, nextIP)
+	cmd := exec.Command("/usr/local/bin/boxify-init", containerID, memory, cpu, containerVeth, gateway, nextIP)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
@@ -116,37 +110,6 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	}
 }
 
-func child(d DaemonInterface, containerID, mem, cpu, containerVeth, gateway, ipAddr string) {
-	err, newContainerID := container.InitContainer()
-
-	mergedDir := "/tmp/boxify-container/" + newContainerID + "/merged"
-	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
-	defer os.RemoveAll("/tmp/boxify-container/" + newContainerID)
-	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
-
-	if err != nil {
-		log.Printf("Error: failed in creating overlay FS %v\n", err)
-		os.Exit(1)
-	}
-	setupMounts()
-
-	if err := d.NetworkManager().SetupContainerInterface(containerID, d); err != nil {
-		log.Printf("Error setting up network: %v\n", err)
-		os.Exit(1)
-	}
-
-	cmd := exec.Command("/bin/sh")
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Env = []string{"PATH=/bin:/usr/bin:/sbin:/usr/sbin"}
-	if err := cmd.Run(); err != nil {
-		log.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-	log.Println("Container exiting...")
-}
-
 func saveContainerToJSON(container *types.Container) error {
 	dir := "/var/lib/boxify"
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -164,26 +127,4 @@ func saveContainerToJSON(container *types.Container) error {
 	}
 
 	return nil
-}
-
-func setupMounts() {
-	log.Printf("setting up proc mount\n")
-	err := syscall.Mount("proc", "/proc", "proc", 0, "")
-	if err != nil {
-		log.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-	log.Printf("setting up sys mount\n")
-	err = syscall.Mount("sysfs", "/sys", "sysfs", 0, "")
-	if err != nil {
-		log.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	log.Printf("setting up dev mount\n")
-	err = syscall.Mount("tmpfs", "/dev", "tmpfs", 0, "")
-	if err != nil {
-		log.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
 }

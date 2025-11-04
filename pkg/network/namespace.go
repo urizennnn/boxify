@@ -140,6 +140,87 @@ func (m *NetworkManager) CreateLoopbackInContainerNamespace(containerId string, 
 	return nil
 }
 
+func SetupContainerNetworkStandalone(containerID, containerVethName, gateway, ipAddr string) error {
+	containerVeth, err := netlink.LinkByName(containerVethName)
+	if err != nil {
+		log.Printf("could not find veth %s: %v", containerVethName, err)
+		return err
+	}
+
+	err = netlink.LinkSetName(containerVeth, "eth0")
+	if err != nil {
+		log.Printf("could not rename veth %s to eth0: %v", containerVethName, err)
+		return err
+	}
+
+	containerVeth, err = netlink.LinkByName("eth0")
+	if err != nil {
+		log.Printf("could not find renamed veth eth0: %v", err)
+		return err
+	}
+
+	addr, err := netlink.ParseAddr(ipAddr)
+	if err != nil {
+		log.Printf("failed to parse addr %s: %v\n", ipAddr, err)
+		return err
+	}
+
+	err = netlink.AddrAdd(containerVeth, addr)
+	if err != nil {
+		log.Printf("could not assign IP address %s to eth0: %v", ipAddr, err)
+		return err
+	}
+
+	err = netlink.LinkSetUp(containerVeth)
+	if err != nil {
+		log.Printf("could not set link up: %v\n", err)
+		return err
+	}
+
+	gw := net.ParseIP(gateway)
+	_, dstNet, err := net.ParseCIDR("0.0.0.0/0")
+	if err != nil {
+		log.Printf("failed to parse default route CIDR: %v", err)
+		return err
+	}
+
+	route := &netlink.Route{
+		Dst:       dstNet,
+		Gw:        gw,
+		LinkIndex: containerVeth.Attrs().Index,
+	}
+	if err = netlink.RouteAdd(route); err != nil {
+		log.Printf("could not add route: %v\n", err)
+		return err
+	}
+
+	la := netlink.NewLinkAttrs()
+	la.Name = "lo"
+
+	existingLink, err := LinkExists(la.Name)
+	if err == nil {
+		err = netlink.LinkSetUp(existingLink)
+		if err != nil {
+			log.Printf("could not set up loopback interface: %v", err)
+			return err
+		}
+	} else {
+		loopback := netlink.Device{LinkAttrs: la}
+		err := netlink.LinkAdd(&loopback)
+		if err != nil {
+			log.Printf("could not add loopback interface: %v", err)
+			return err
+		}
+		err = netlink.LinkSetUp(&loopback)
+		if err != nil {
+			log.Printf("could not set up loopback interface: %v", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *NetworkManager) SetupContainerInterface(containerId string, damon ContainerGetter) error {
 	err := m.RenameVethInContainerNamespace("eth0", containerId, damon)
 	if err != nil {

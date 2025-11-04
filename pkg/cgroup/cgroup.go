@@ -52,18 +52,37 @@ func SetupCgroupsV2(pid int, mem, cpu string) error {
 	return nil
 }
 func parseMemory(input string) (int64, error) {
-    value, _ := strconv.ParseInt(input[:len(input)-1], 10, 64)
+	if input == "" {
+		return 0, nil
+	}
 
-    switch input[len(input)-1] {
-    case 'k', 'K':
-        return value * 1024, nil
-    case 'm', 'M':
-        return value * 1024 * 1024, nil
-    case 'g', 'G':
-        return value * 1024 * 1024 * 1024, nil
-    }
+	if len(input) < 2 {
+		value, err := strconv.ParseInt(input, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return value, nil
+	}
 
-    log.Println("parseMemory: invalid format")
-    return 0, nil
+	lastChar := input[len(input)-1]
+	value, err := strconv.ParseInt(input[:len(input)-1], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	switch lastChar {
+	case 'k', 'K':
+		return value * 1024, nil
+	case 'm', 'M':
+		return value * 1024 * 1024, nil
+	case 'g', 'G':
+		return value * 1024 * 1024 * 1024, nil
+	default:
+		valueWithoutSuffix, err := strconv.ParseInt(input, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return valueWithoutSuffix, nil
+	}
 }
 

@@ -30,7 +30,6 @@ func (d *Daemon) Init() {
 		log.Fatalf("Failed to set permissions: %v", err)
 	}
 
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/containers/create", d.HandleCreateRequest)
 	// mux.HandleFunc("/containers/start", handleStart)

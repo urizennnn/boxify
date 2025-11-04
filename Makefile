@@ -13,10 +13,13 @@ setup:
 	cp ./pkg/daemon/boxifyd.service /etc/systemd/system/
 	go build -o boxify ./cmd/boxify/main.go
 	go build -o boxifyd ./cmd/boxifyd/main.go
+	go build -o boxify-init ./cmd/boxify-init/main.go
 	cp ./boxifyd /usr/local/bin/boxifyd
 	cp ./boxify /usr/local/bin/boxify
+	cp ./boxify-init /usr/local/bin/boxify-init
 	chmod +x /usr/local/bin/boxifyd
 	chmod +x /usr/local/bin/boxify
+	chmod +x /usr/local/bin/boxify-init
 	sudo systemctl restart boxifyd
 
 

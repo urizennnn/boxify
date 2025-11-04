@@ -44,3 +44,4 @@ myenv/
 venv/
 ./boxify
 boxify
+boxify.yaml
