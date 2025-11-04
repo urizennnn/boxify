@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/network"
 )
 
@@ -20,14 +19,9 @@ func main() {
 	gateway := os.Args[5]
 	ipAddr := os.Args[6]
 
-	err, newContainerID := container.InitContainer()
-	if err != nil {
-		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
-	}
-
-	mergedDir := "/tmp/boxify-container/" + newContainerID + "/merged"
+	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
 	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
-	defer os.RemoveAll("/tmp/boxify-container/" + newContainerID)
+	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
 	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 
 	setupMounts()

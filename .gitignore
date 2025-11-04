@@ -45,3 +45,6 @@ venv/
 ./boxify
 boxify
 boxify.yaml
+boxify-init
+boxifyd
+boxifyd

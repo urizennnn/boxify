@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/urizennnn/boxify/pkg/cgroup"
+	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/urizennnn/boxify/pkg/network"
@@ -34,9 +34,12 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 	memory := request.MemoryLimit
 	cpu := request.CpuLimit
 
-	containerID := uuid.New().String()
+	err, newContainerID := container.InitContainer()
+	if err != nil {
+		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
+	}
 
-	parent(d, containerID, memory, cpu)
+	parent(d, newContainerID, memory, cpu)
 }
 
 func parent(d DaemonInterface, containerID, memory, cpu string) {
@@ -50,7 +53,11 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 	gateway := networkMgr.IpManager.GetGateway()
 	nextIP := networkMgr.IpManager.GetNextIP()
 
-	cmd := exec.Command("/usr/local/bin/boxify-init", containerID, memory, cpu, containerVeth, gateway, nextIP)
+	err, newContainerID := container.InitContainer()
+	if err != nil {
+		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
+	}
+	cmd := exec.Command("/usr/local/bin/boxify-init", newContainerID, memory, cpu, containerVeth, gateway, nextIP)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
