@@ -19,9 +19,9 @@ func main() {
 	gateway := os.Args[5]
 	ipAddr := os.Args[6]
 
-	mergedDir := "/tmp/boxify-container/" + containerID + "/merged"
+	mergedDir := "/var/lib/boxify/boxify-container/" + containerID + "/merged"
 	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
-	defer os.RemoveAll("/tmp/boxify-container/" + containerID)
+	defer os.RemoveAll("/var/lib/boxify/boxify-container/" + containerID)
 	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 
 	setupMounts()

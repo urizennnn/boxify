@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/google/uuid"
+	"github.com/urizennnn/boxify/config"
 	"github.com/vishvananda/netlink"
 )
 
@@ -60,9 +62,63 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 		return err
 	}
 
-	ip.NextIP = ip.IncrementIp(ip.NextIP.String())
-	ip.Allocated[la.Name] = net.IP(nonConflictingAddr)
+	incrementedIP := ip.IncrementIp(ip.NextIP.String())
+	ip.NextIP = incrementedIP
+	ip.Allocated[la.Name] = net.ParseIP(nonConflictingAddr)
 	log.Printf("[8/8] Bridge %s setup complete with IP %s", la.Name, nonConflictingAddr)
+
+	if CheckNetworkConfigExists() {
+		log.Printf("[INFO] Network config already exists, updating allocated IPs")
+		configPath := NetworkStorageDir + "/default.yaml"
+		lock := NewFileLock(configPath)
+		if err := lock.AcquireLock(); err != nil {
+			log.Printf("[WARNING] Failed to acquire lock: %v", err)
+			return err
+		}
+		defer lock.ReleaseLock()
+
+		networkStorage, err := ReadNetworkConfig("default")
+		if err != nil {
+			log.Printf("[WARNING] Failed to read network config: %v", err)
+			return err
+		}
+
+		networkStorage.Ipam.AllocatedIPs[la.Name] = nonConflictingAddr
+		networkStorage.Ipam.NextIP = ip.NextIP.String()
+
+		if err := WriteNetworkConfigWithoutLock(networkStorage); err != nil {
+			log.Printf("[WARNING] Failed to update network config: %v", err)
+			return err
+		}
+		log.Printf("[SUCCESS] Network config updated")
+	} else {
+		log.Printf("[INFO] Creating new network config")
+		networkStorage := &config.NetworkStorage{
+			Id:   uuid.New().String(),
+			Name: la.Name,
+			Bridge: config.NetworkBridge{
+				Name: la.Name,
+				Mtu:  m.BridgeInstance.Attrs().MTU,
+			},
+			Ipam: config.NetworkIpam{
+				Subnet:       ip.BridgeCIDR,
+				Gateway:      ip.Gateway.String(),
+				NextIP:       ip.NextIP.String(),
+				AllocatedIPs: make(map[string]string),
+			},
+			Containers: []config.ContainerStorage{},
+		}
+
+		for name, ipAddr := range ip.Allocated {
+			networkStorage.Ipam.AllocatedIPs[name] = ipAddr.String()
+		}
+
+		if err := WriteNetworkConfig(networkStorage); err != nil {
+			log.Printf("[WARNING] Failed to persist network config: %v", err)
+		} else {
+			log.Printf("[SUCCESS] Network config persisted to %s/default.yaml", NetworkStorageDir)
+		}
+	}
 
 	return nil
 }

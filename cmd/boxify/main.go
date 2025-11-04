@@ -45,6 +45,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to marshal request: %v", err)
 	}
+	file, err := os.OpenFile("/proc/self/ns/net", 0, 0o600)
+	if err != nil {
+		fmt.Printf("Failed to open net ns: %v", err)
+		return
+	}
+	err = os.WriteFile("/var/lib/boxify/networks/host", []byte{byte(file.Fd())}, 0o644)
+	if err != nil {
+		fmt.Printf("Failed to write host net ns: %v", err)
+		return
+	}
 
 	resp, err := client.Post(
 		"http://unix/containers/create",

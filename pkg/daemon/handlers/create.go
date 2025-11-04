@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/urizennnn/boxify/pkg/cgroup"
 	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
@@ -34,15 +35,7 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 	memory := request.MemoryLimit
 	cpu := request.CpuLimit
 
-	err, newContainerID := container.InitContainer()
-	if err != nil {
-		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
-	}
-
-	parent(d, newContainerID, memory, cpu)
-}
-
-func parent(d DaemonInterface, containerID, memory, cpu string) {
+	containerID := uuid.New().String()
 	networkMgr := d.NetworkManager()
 	hostVeth, containerVeth, err := networkMgr.VethManager.CreateVethPairAndAttachToHostBridge(containerID, networkMgr.BridgeManager)
 	if err != nil {
@@ -50,14 +43,15 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 		return
 	}
 
-	gateway := networkMgr.IpManager.GetGateway()
-	nextIP := networkMgr.IpManager.GetNextIP()
+	parent(d, containerID, memory, cpu, containerVeth, hostVeth, networkMgr)
+}
 
-	err, newContainerID := container.InitContainer()
-	if err != nil {
-		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
-	}
-	cmd := exec.Command("/usr/local/bin/boxify-init", newContainerID, memory, cpu, containerVeth, gateway, nextIP)
+func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, hostVeth string, networkMgr *network.NetworkManager) {
+	gateway := networkMgr.IpManager.GetGateway()
+	bridgeCIDR := networkMgr.IpManager.BridgeCIDR
+	nextIP := networkMgr.IpManager.GetNextIP() + bridgeCIDR
+
+	cmd := exec.Command("/usr/local/bin/boxify-init", containerID, memory, cpu, containerVeth, gateway, nextIP)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
@@ -100,21 +94,47 @@ func parent(d DaemonInterface, containerID, memory, cpu string) {
 		return
 	}
 
-	err = cgroup.SetupCgroupsV2(pid, memory, cpu)
+	err := cgroup.SetupCgroupsV2(pid, memory, cpu)
 	if err != nil {
 		log.Printf("Error setting up cgroups: %v\n", err)
 		return
 	}
 
-	if err := saveContainerToJSON(containerInfo); err != nil {
+	if err = saveContainerToJSON(containerInfo); err != nil {
 		log.Printf("Error saving container info: %v\n", err)
 	}
+	err, newRoot := container.InitContainer(containerID)
+	if err != nil {
+		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
+	}
 
+	if err = changeRoot(newRoot); err != nil {
+		log.Printf("Error changing root: %v\n", err)
+		return
+	}
 	err = cmd.Wait()
 	if err != nil {
 		log.Printf("Error: %v\n", err)
 		return
 	}
+}
+
+func changeRoot(newRoot string) error {
+	log.Printf("pivoting\n")
+	log.Printf("new root: %s\n", newRoot)
+
+	err := syscall.Chroot(newRoot)
+	if err != nil {
+		log.Printf("Error: error in pivot function %v\n", err)
+		return err
+	}
+	log.Printf("changing dir\n")
+	err = syscall.Chdir("/")
+	if err != nil {
+		log.Printf("Error: error in pivot function %v\n", err)
+		return err
+	}
+	return nil
 }
 
 func saveContainerToJSON(container *types.Container) error {

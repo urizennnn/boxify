@@ -3,8 +3,12 @@ package network
 import (
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/urizennnn/boxify/config"
+	"gopkg.in/yaml.v3"
 )
 
 // func (m *IPManager) ReleaseIP(containerID string) error
@@ -12,6 +16,15 @@ import (
 // func (m *IPManager) AllocateIP(containerID string) (string, error)
 
 func (m *IPManager) GetNextIP() string {
+	if CheckNetworkConfigExists() {
+		networkConfig, err := ReadNetworkConfig("default")
+		if err != nil {
+			log.Printf("GetNextIP: Failed to read config, falling back to memory: %v", err)
+			return m.NextIP.String()
+		}
+		m.NextIP = net.ParseIP(networkConfig.Ipam.NextIP)
+		return networkConfig.Ipam.NextIP
+	}
 	return m.NextIP.String()
 }
 
@@ -71,6 +84,29 @@ func isNetworkConflict(cidr string, existing []*net.IPNet) bool {
 
 func (m *IPManager) InitIPManager() (string, error) {
 	log.Println("InitIPManager: Starting")
+
+	if CheckNetworkConfigExists() {
+		log.Println("InitIPManager: Network config already exists, loading from file")
+		networkConfig, err := ReadNetworkConfig("default")
+		if err != nil {
+			log.Printf("InitIPManager: Error reading existing config: %v", err)
+			return "", err
+		}
+
+		m.BridgeCIDR = networkConfig.Ipam.Subnet
+		m.Gateway = net.ParseIP(networkConfig.Ipam.Gateway)
+		m.NextIP = net.ParseIP(networkConfig.Ipam.NextIP)
+		m.Allocated = make(map[string]net.IP)
+
+		for name, ipStr := range networkConfig.Ipam.AllocatedIPs {
+			m.Allocated[name] = net.ParseIP(ipStr)
+		}
+
+		log.Printf("InitIPManager: Loaded existing network - Gateway: %s, NextIP: %s", m.Gateway, m.NextIP)
+		return m.Gateway.String() + m.BridgeCIDR, nil
+	}
+
+	log.Println("InitIPManager: No existing config found, initializing new network")
 	hostNetworks, err := m.GetHostNetworks()
 	if err != nil {
 		log.Printf("InitIPManager: Error getting host networks: %v", err)
@@ -120,5 +156,44 @@ func (m *IPManager) IncrementIp(ip string) net.IP {
 	}
 	result := net.ParseIP(strings.Join(splitString, "."))
 	log.Printf("IncrementIp: Result: %v", result)
+
+	if err := m.persistNextIP(result.String()); err != nil {
+		log.Printf("IncrementIp: Warning - failed to persist NextIP: %v", err)
+	}
+
 	return result
+}
+
+func (m *IPManager) persistNextIP(nextIP string) error {
+	if !CheckNetworkConfigExists() {
+		return nil
+	}
+
+	configPath := NetworkStorageDir + "/default.yaml"
+	lock := NewFileLock(configPath)
+	if err := lock.AcquireLock(); err != nil {
+		return err
+	}
+	defer lock.ReleaseLock()
+
+	networkConfig, err := ReadNetworkConfig("default")
+	if err != nil {
+		return err
+	}
+
+	networkConfig.Ipam.NextIP = nextIP
+	m.NextIP = net.ParseIP(nextIP)
+
+	return WriteNetworkConfigWithoutLock(networkConfig)
+}
+
+func WriteNetworkConfigWithoutLock(networkStorage *config.NetworkStorage) error {
+	configPath := NetworkStorageDir + "/default.yaml"
+
+	data, err := yaml.Marshal(networkStorage)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
 }
