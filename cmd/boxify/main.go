@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"syscall"
 
 	"gopkg.in/yaml.v3"
 
@@ -70,12 +71,25 @@ func main() {
 		log.Fatalf("Request failed with status: %d", resp.StatusCode)
 	}
 
-	var result map[string]interface{}
+	var result int
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		log.Printf("Failed to decode response: %v", err)
 	}
 
 	fmt.Printf("Container created successfully: %+v\n", result)
+	err = syscall.Exec(
+		"/usr/bin/nsenter",
+		[]string{
+			"nsenter",
+			"-t", fmt.Sprintf("%d", result),
+			"-u", "-i", "-p", "-n", "-m",
+			"/bin/sh",
+		},
+		os.Environ(),
+	)
+	if err != nil {
+		fmt.Printf("Failed to exec nsenter: %v", err)
+	}
 }
 
 func parseConfigFile() (config.ConfigStructure, error) {
