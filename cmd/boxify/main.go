@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"syscall"
 
 	"gopkg.in/yaml.v3"
@@ -20,8 +19,8 @@ import (
 )
 
 type httpResult struct {
-	pid int
-	cmd *exec.Cmd
+	PID int    `json:"pid"`
+	Cmd string `json:"cmd"`
 }
 
 func main() {
@@ -75,25 +74,24 @@ func main() {
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		log.Printf("Failed to unmarshal response: %v", err)
 	}
-	fmt.Printf("Container created successfully: %+v\n", result)
-	cmd := result.cmd
+	fmt.Printf("Container created successfully: PID=%d, Cmd=%s\n", result.PID, result.Cmd)
 
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			log.Printf("Container %s (PID %d) exited with error: %v", result.pid, err)
-		} else {
-			log.Printf("Container %s (PID %d) exited successfully", result.pid, result.pid)
-		}
-	}()
+	containerEnv := []string{
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+		"TERM=xterm",
+		"HOME=/root",
+		"HOSTNAME=container",
+	}
+
 	err = syscall.Exec(
 		"/usr/bin/nsenter",
 		[]string{
 			"nsenter",
-			"-t", fmt.Sprintf("%d", result.pid),
+			"-t", fmt.Sprintf("%d", result.PID),
 			"-u", "-i", "-p", "-n", "-m",
 			"/bin/sh",
 		},
-		os.Environ(),
+		containerEnv,
 	)
 	if err != nil {
 		fmt.Printf("Failed to exec nsenter: %v", err)

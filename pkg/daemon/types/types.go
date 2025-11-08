@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"os/exec"
+	"time"
+)
 
 type Container struct {
 	ID          string
@@ -10,6 +13,7 @@ type Container struct {
 	NetworkInfo *NetworkInfo
 	CreatedAt   time.Time
 	Status      string
+	Cmd         *exec.Cmd `yaml:"-"`
 }
 
 type NetworkInfo struct {

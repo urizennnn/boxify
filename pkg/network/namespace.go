@@ -323,20 +323,6 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon Conta
 		return nil
 	}
 	log.Printf("[SetupInterface] Step 4 completed")
-
-	log.Printf("[SetupInterface] Restoring to host namespace before NAT setup")
-	if err := netns.Set(netns.NsHandle(origNS.Fd())); err != nil {
-		log.Printf("[SetupInterface] Failed to restore to host namespace: %v", err)
-		return err
-	}
-	log.Printf("[SetupInterface] Successfully restored to host namespace")
-
-	log.Printf("[SetupInterface] Step 5: Enabling NAT")
-	if err = m.NatManager.EnableNat(); err != nil {
-		log.Printf("[SetupInterface] Failed to enable NAT: %v", err)
-		return nil
-	}
-	log.Printf("[SetupInterface] Step 5 completed")
 	log.Printf("[SetupInterface] ========== Network setup completed for container %s ==========", containerId)
 	container, err := damon.GetContainer(containerId)
 	if err != nil {

@@ -107,10 +107,22 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 			ContainerVeth: containerVeth,
 		},
 		CreatedAt: time.Now(),
-		Status:    "created",
+		Status:    "running",
+		Cmd:       cmd,
 	}
 
 	d.AddContainer(containerInfo)
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Container %s (PID %d) exited with error: %v", containerID, pid, err)
+		} else {
+			log.Printf("Container %s (PID %d) exited successfully", containerID, pid)
+		}
+		if container, err := d.GetContainer(containerID); err == nil {
+			container.Status = "exited"
+		}
+	}()
 
 	log.Printf("Setting up container interface for container %s\n", containerID)
 	if err := networkMgr.SetupContainerInterface(containerID, d, containerVeth); err != nil {

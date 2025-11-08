@@ -48,25 +48,36 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 	}
 	log.Printf("[5/8] Bridge %s is up", la.Name)
 
-	nonConflictingAddr := ip.GetNextIP()
-	log.Printf("[6/8] Got next available IP: %s", nonConflictingAddr)
-	addr, err := netlink.ParseAddr(nonConflictingAddr + ip.BridgeCIDR)
-	if err != nil {
-		log.Printf("[ERROR] failed to parse IP addr %s: %v", nonConflictingAddr, err)
-		return err
-	}
+	var bridgeIP string
+	existingAddrs, err := netlink.AddrList(m.BridgeInstance, netlink.FAMILY_V4)
+	if err == nil && len(existingAddrs) > 0 {
+		bridgeIP = existingAddrs[0].IP.String()
+		log.Printf("[6/8] Bridge already has IP: %s, reusing it", bridgeIP)
+		ip.Gateway = net.ParseIP(bridgeIP)
+		ip.Allocated[la.Name] = net.ParseIP(bridgeIP)
+		log.Printf("[8/8] Bridge %s setup complete with existing IP %s (Gateway set to %s)", la.Name, bridgeIP, ip.Gateway)
+	} else {
+		bridgeIP = ip.GetNextIP()
+		log.Printf("[6/8] Got next available IP: %s", bridgeIP)
+		addr, err := netlink.ParseAddr(bridgeIP + ip.BridgeCIDR)
+		if err != nil {
+			log.Printf("[ERROR] failed to parse IP addr %s: %v", bridgeIP, err)
+			return err
+		}
 
-	log.Printf("[7/8] Assigning IP %s to bridge %s", addr, la.Name)
-	err = netlink.AddrAdd(m.BridgeInstance, addr)
-	if err != nil {
-		log.Printf("[ERROR] could not add IP addr to bridge %s: %v", la.Name, err)
-		return err
-	}
+		log.Printf("[7/8] Assigning IP %s to bridge %s", addr, la.Name)
+		err = netlink.AddrAdd(m.BridgeInstance, addr)
+		if err != nil {
+			log.Printf("[ERROR] could not add IP addr to bridge %s: %v", la.Name, err)
+			return err
+		}
 
-	incrementedIP := ip.IncrementIp(ip.NextIP.String())
-	ip.NextIP = incrementedIP
-	ip.Allocated[la.Name] = net.ParseIP(nonConflictingAddr)
-	log.Printf("[8/8] Bridge %s setup complete with IP %s", la.Name, nonConflictingAddr)
+		ip.Gateway = net.ParseIP(bridgeIP)
+		incrementedIP := ip.IncrementIp(ip.NextIP.String())
+		ip.NextIP = incrementedIP
+		ip.Allocated[la.Name] = net.ParseIP(bridgeIP)
+		log.Printf("[8/8] Bridge %s setup complete with IP %s (Gateway set to %s)", la.Name, bridgeIP, ip.Gateway)
+	}
 
 	if CheckNetworkConfigExists() {
 		log.Printf("[INFO] Network config already exists, updating allocated IPs")
@@ -84,7 +95,7 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 			return err
 		}
 
-		networkStorage.Ipam.AllocatedIPs[la.Name] = nonConflictingAddr
+		networkStorage.Ipam.AllocatedIPs[la.Name] = bridgeIP
 		networkStorage.Ipam.NextIP = ip.NextIP.String()
 
 		if err := WriteNetworkConfigWithoutLock(networkStorage); err != nil {

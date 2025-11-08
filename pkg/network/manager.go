@@ -32,6 +32,11 @@ func NewNetworkManager() (*NetworkManager, error) {
 		IpManager:     ipManager,
 	}
 
+	log.Println("Setting up NAT and forwarding rules")
+	if err := natManager.EnableNat(); err != nil {
+		log.Printf("Warning: failed to setup NAT: %v", err)
+	}
+
 	return &NetworkManager{
 		BridgeManager: bridgeManager,
 		IpManager:     ipManager,

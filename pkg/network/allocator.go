@@ -45,7 +45,6 @@ func (m *IPManager) GetHostNetworks() ([]*net.IPNet, error) {
 	}
 
 	for _, iface := range ifaces {
-		// Skip loopback
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
@@ -126,9 +125,11 @@ func (m *IPManager) InitIPManager() (string, error) {
 		if !isNetworkConflict(candidate, hostNetworks) {
 			log.Printf("InitIPManager: Using network: %s", candidate)
 			m.BridgeCIDR = "/16"
-			m.Gateway, _, _ = net.ParseCIDR(candidate)
-			log.Printf("InitIPManager: Gateway: %v", m.Gateway)
-			m.NextIP = m.IncrementIp(m.Gateway.String())
+			networkIP, _, _ := net.ParseCIDR(candidate)
+			firstUsableIP := m.IncrementIp(networkIP.String())
+			m.Gateway = firstUsableIP
+			m.NextIP = firstUsableIP
+			log.Printf("InitIPManager: Gateway: %v, NextIP: %v", m.Gateway, m.NextIP)
 			return candidate, nil
 		}
 	}

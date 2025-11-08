@@ -23,6 +23,13 @@ func (m *NatManager) setupMasquerading() error {
 	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 	ipCidr := m.IpManager.GetIpDetails()
 	fullCIDR := ipCidr.Gateway.String() + ipCidr.BridgeCIDR
+
+	checkCmd := exec.Command("iptables", "-t", "nat", "-C", "POSTROUTING", "-s", fullCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
+	if err := checkCmd.Run(); err == nil {
+		log.Printf("Masquerading rule already exists for %s", fullCIDR)
+		return nil
+	}
+
 	log.Printf("Setting up masquerading for network %s via bridge %s", fullCIDR, bridgeDetails.DefaultBridge)
 	cmd := exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", fullCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
 
@@ -38,11 +45,27 @@ func (m *NatManager) setupMasquerading() error {
 func (m *NatManager) SetupForwardingRules() error {
 	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 
-	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", "eth0", "-o", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
-	if err := cmd.Run(); err != nil {
-		log.Printf("error setting up forwarding rules: %v", err)
+	checkCmd := exec.Command("iptables", "-C", "FORWARD", "-i", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
+	if err := checkCmd.Run(); err == nil {
+		log.Printf("Forwarding rules already exist for %s", bridgeDetails.DefaultBridge)
 		return nil
 	}
+
+	log.Printf("Setting up forwarding rules for bridge %s", bridgeDetails.DefaultBridge)
+
+	cmd1 := exec.Command("iptables", "-A", "FORWARD", "-i", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
+	if err := cmd1.Run(); err != nil {
+		log.Printf("error setting up outbound forwarding rule: %v", err)
+		return nil
+	}
+
+	cmd2 := exec.Command("iptables", "-A", "FORWARD", "-o", bridgeDetails.DefaultBridge, "-m", "conntrack", "--ctstate", "RELATED,ESTABLISHED", "-j", "ACCEPT")
+	if err := cmd2.Run(); err != nil {
+		log.Printf("error setting up inbound forwarding rule: %v", err)
+		return nil
+	}
+
+	log.Printf("Forwarding rules set up successfully")
 	return nil
 }
 

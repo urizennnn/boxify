@@ -36,7 +36,6 @@ func SetupCgroupsV2(pid int, mem, cpu string) error {
 		return err
 	}
 
-	// PIDs: max 100 processes
 	err = os.WriteFile(cgroupPath+"/pids.max", []byte("100"), 0o644)
 	if err != nil {
 		log.Printf("Error: error setting PIDs limit %v\n", err)

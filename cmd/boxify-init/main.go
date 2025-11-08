@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"syscall"
 )
 
@@ -13,25 +14,54 @@ func main() {
 
 	containerID := os.Args[1]
 	mergedDir := os.Args[4]
-	err := syscall.Chroot(mergedDir)
-	if err != nil {
-		log.Printf("Error: error in pivot function %v\n", err)
-		return
-	}
-	log.Printf("changing dir\n")
-	err = syscall.Chdir("/")
-	if err != nil {
-		log.Printf("Error: error in pivot function %v\n", err)
-		return
+
+	if err := pivotRoot(mergedDir); err != nil {
+		log.Fatalf("Error: failed to pivot root: %v\n", err)
 	}
 
-	defer syscall.Unmount(mergedDir, syscall.MNT_DETACH)
 	defer os.RemoveAll("/var/lib/boxify/boxify-container/" + containerID)
 	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 
 	setupMounts()
 
 	log.Println("Container ready, waiting for attach...")
+
+	for {
+		syscall.Pause()
+	}
+}
+
+func pivotRoot(newRoot string) error {
+	log.Printf("pivoting root to %s\n", newRoot)
+
+	putOld := filepath.Join(newRoot, ".pivot_root")
+	if err := os.MkdirAll(putOld, 0700); err != nil {
+		return err
+	}
+
+	if err := syscall.Mount(newRoot, newRoot, "", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
+		return err
+	}
+
+	if err := syscall.PivotRoot(newRoot, putOld); err != nil {
+		return err
+	}
+
+	if err := os.Chdir("/"); err != nil {
+		return err
+	}
+
+	putOld = "/.pivot_root"
+	if err := syscall.Unmount(putOld, syscall.MNT_DETACH); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(putOld); err != nil {
+		return err
+	}
+
+	log.Printf("successfully pivoted root\n")
+	return nil
 }
 
 func setupMounts() {
