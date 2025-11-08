@@ -36,10 +36,10 @@ func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, contain
 		log.Printf("[MoveVeth] Could not get netns fd for container %s: %v", containerId, err)
 		return nil
 	}
-	log.Printf("[MoveVeth] Got container namespace FD: %d for PID %d", containerFD, container.PID)
+	log.Printf("[MoveVeth] Got container namespace FD: %d for PID %d", containerFD.Fd(), container.PID)
 
-	log.Printf("[MoveVeth] Moving veth %s into namespace %d", vethName, containerFD)
-	err = netlink.LinkSetNsPid(
+	log.Printf("[MoveVeth] Moving veth %s into namespace FD %d", vethName, containerFD.Fd())
+	err = netlink.LinkSetNsFd(
 		containerVeth, int(containerFD.Fd()),
 	)
 	if err != nil {
@@ -48,7 +48,7 @@ func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, contain
 	}
 	log.Printf("[MoveVeth] Successfully moved veth into namespace")
 
-	log.Printf("[MoveVeth] Switching to container namespace (FD: %d)", containerFD)
+	log.Printf("[MoveVeth] Switching to container namespace (FD: %d)", containerFD.Fd())
 	if err := netns.Set(netns.NsHandle(containerFD.Fd())); err != nil {
 		log.Printf("[MoveVeth] Failed to switch to container namespace: %v", err)
 		return err
