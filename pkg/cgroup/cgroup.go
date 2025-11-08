@@ -8,6 +8,7 @@ import (
 )
 
 func SetupCgroupsV2(pid int, mem, cpu string) error {
+	log.Printf("Setting up cgroups v2 with memory: %s, cpu: %s for pid: %d\n", mem, cpu, pid)
 	cgroupPath := "/sys/fs/cgroup/boxify"
 
 	if err := os.MkdirAll(cgroupPath, 0o755); err != nil {

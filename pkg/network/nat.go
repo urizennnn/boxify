@@ -22,7 +22,6 @@ func (m *NatManager) enableIPForwarding() error {
 func (m *NatManager) setupMasquerading() error {
 	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 	ipCidr := m.IpManager.GetIpDetails()
-	// Build full CIDR notation: e.g., "172.18.0.0/16"
 	fullCIDR := ipCidr.Gateway.String() + ipCidr.BridgeCIDR
 	log.Printf("Setting up masquerading for network %s via bridge %s", fullCIDR, bridgeDetails.DefaultBridge)
 	cmd := exec.Command("iptables", "-t", "nat", "-A", "POSTROUTING", "-s", fullCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")
@@ -50,7 +49,6 @@ func (m *NatManager) SetupForwardingRules() error {
 func (m *NatManager) RemoveMasquerading() error {
 	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 	ipCidr := m.IpManager.GetIpDetails()
-	// Build full CIDR notation: e.g., "172.18.0.0/16"
 	fullCIDR := ipCidr.Gateway.String() + ipCidr.BridgeCIDR
 
 	cmd := exec.Command("iptables", "-t", "nat", "-D", "POSTROUTING", "-s", fullCIDR, "!", "-o", bridgeDetails.DefaultBridge, "-j", "MASQUERADE")

@@ -9,7 +9,6 @@ import (
 	"github.com/vishvananda/netns"
 )
 
-// ContainerGetter interface for getting container information
 type ContainerGetter interface {
 	GetContainer(id string) (*types.Container, error)
 }
@@ -32,6 +31,7 @@ func (m *NetworkManager) MoveVethIntoContainerNamespace(vethName string, contain
 	log.Printf("[MoveVeth] Found veth %s (index: %d)", container.NetworkInfo.ContainerVeth, containerVeth.Attrs().Index)
 
 	containerFD, err := GetNsFD(container.PID)
+	defer containerFD.Close()
 	if err != nil {
 		log.Printf("[MoveVeth] Could not get netns fd for container %s: %v", containerId, err)
 		return nil
@@ -94,7 +94,7 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 		log.Printf("[AssignIP] Could not get container %v: %v", containerId, err)
 		return nil
 	}
-	log.Printf("[AssignIP] Looking for veth: %s","eth0")
+	log.Printf("[AssignIP] Looking for veth: %s", "eth0")
 
 	containerVeth, err := netlink.LinkByName("eth0")
 	if err != nil {
@@ -110,8 +110,8 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 	}
 	log.Printf("[AssignIP] Got IP address: %s", ipAddr)
 
-	//FIX: dynamically set subnet mask
-	addr, err := netlink.ParseAddr(ipAddr+"/16")
+	// FIX: dynamically set subnet mask
+	addr, err := netlink.ParseAddr(ipAddr + "/16")
 	if err != nil {
 		log.Printf("[AssignIP] Failed to parse addr %s: %v", ipAddr, err)
 		return err
@@ -290,6 +290,7 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon Conta
 		} else {
 			log.Printf("[SetupInterface] Successfully restored to original namespace")
 		}
+		origNS.Close()
 	}()
 
 	log.Printf("[SetupInterface] Step 1: Moving veth %s into container namespace", containerVeth)
@@ -323,7 +324,6 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon Conta
 	}
 	log.Printf("[SetupInterface] Step 4 completed")
 
-	// Restore to host namespace before enabling NAT (NAT rules must be on host)
 	log.Printf("[SetupInterface] Restoring to host namespace before NAT setup")
 	if err := netns.Set(netns.NsHandle(origNS.Fd())); err != nil {
 		log.Printf("[SetupInterface] Failed to restore to host namespace: %v", err)
@@ -337,7 +337,13 @@ func (m *NetworkManager) SetupContainerInterface(containerId string, damon Conta
 		return nil
 	}
 	log.Printf("[SetupInterface] Step 5 completed")
-
 	log.Printf("[SetupInterface] ========== Network setup completed for container %s ==========", containerId)
+	container, err := damon.GetContainer(containerId)
+	if err != nil {
+		log.Printf("[MoveVeth] Could not get container %v: %v", containerId, err)
+		return nil
+	}
+	log.Printf("Container pid %v\n", container.PID)
+
 	return nil
 }

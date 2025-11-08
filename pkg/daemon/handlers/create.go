@@ -77,8 +77,6 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 
 		Unshareflags: syscall.CLONE_NEWNS,
 	}
-	// Don't inherit daemon's stdin/stdout/stderr - container will be accessed via nsenter
-	// Keep stderr for init logs, but don't set stdin/stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
@@ -87,14 +85,6 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 	}
 	pid := cmd.Process.Pid
 
-	// Start a goroutine to wait for the container process and reap it when it exits
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			log.Printf("Container %s (PID %d) exited with error: %v", containerID, pid, err)
-		} else {
-			log.Printf("Container %s (PID %d) exited successfully", containerID, pid)
-		}
-	}()
 
 	containerInfo := &types.Container{
 		ID:      containerID,
@@ -130,6 +120,13 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 		log.Printf("Error saving container info: %v\n", err)
 	}
 
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Container %s (PID %d) exited with error: %v", containerID, pid, err)
+		} else {
+			log.Printf("Container %s (PID %d) exited successfully", containerID, pid)
+		}
+	}()
 	return pid, nil
 }
 
