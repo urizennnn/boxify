@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -51,7 +50,6 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create container", http.StatusInternalServerError)
 		return
 	}
-
 	response := map[string]interface{}{
 		"pid": pid,
 		"cmd": cmd.String(),
@@ -61,7 +59,6 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(jsonBytes)
 	if err != nil {
@@ -97,7 +94,6 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 	}
 	pid := cmd.Process.Pid
 
-
 	containerInfo := &types.Container{
 		ID:      containerID,
 		PID:     pid,
@@ -119,26 +115,19 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 	log.Printf("Setting up container interface for container %s\n", containerID)
 	if err := networkMgr.SetupContainerInterface(containerID, d, containerVeth); err != nil {
 		log.Printf("Error setting up container interface: %v\n", err)
-		return 0, nil, err
+		return 0, cmd, err
 	}
 
 	err = cgroup.SetupCgroupsV2(pid, memory, cpu)
 	if err != nil {
 		log.Printf("Error setting up cgroups: %v\n", err)
-		return 0, nil, err
+		return 0, cmd, err
 	}
 
 	if err = saveContainerToDefaultConfig(containerInfo); err != nil {
 		log.Printf("Error saving container info: %v\n", err)
 	}
 
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			log.Printf("Container %s (PID %d) exited with error: %v", containerID, pid, err)
-		} else {
-			log.Printf("Container %s (PID %d) exited successfully", containerID, pid)
-		}
-	}()
 	return pid, cmd, nil
 }
 

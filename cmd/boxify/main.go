@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"gopkg.in/yaml.v3"
@@ -16,6 +18,11 @@ import (
 	"github.com/urizennnn/boxify/config"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
 )
+
+type httpResult struct {
+	pid int
+	cmd *exec.Cmd
+}
 
 func main() {
 	client := &http.Client{
@@ -60,20 +67,29 @@ func main() {
 		log.Fatalf("Request failed with status: %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Pid int    `json:"pid"`
-		Cmd string `json:"cmd"`
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read response body: %v", err)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		log.Printf("Failed to decode response: %v", err)
+	var result httpResult
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		log.Printf("Failed to unmarshal response: %v", err)
 	}
+	fmt.Printf("Container created successfully: %+v\n", result)
+	cmd := result.cmd
 
-	fmt.Printf("Container created successfully: PID=%d, CMD=%s\n", result.Pid, result.Cmd)
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			log.Printf("Container %s (PID %d) exited with error: %v", result.pid, err)
+		} else {
+			log.Printf("Container %s (PID %d) exited successfully", result.pid, result.pid)
+		}
+	}()
 	err = syscall.Exec(
 		"/usr/bin/nsenter",
 		[]string{
 			"nsenter",
-			"-t", fmt.Sprintf("%d", result.Pid),
+			"-t", fmt.Sprintf("%d", result.pid),
 			"-u", "-i", "-p", "-n", "-m",
 			"/bin/sh",
 		},
