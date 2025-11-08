@@ -1,5 +1,6 @@
 package network
-//TODO: implement port forwarding rules at a later time
+
+// TODO: implement port forwarding rules at a later time
 
 import (
 	"log"
@@ -14,6 +15,12 @@ func (m *NatManager) enableIPForwarding() error {
 		return nil
 	}
 	log.Printf("IP forwarding enabled successfully")
+	cmd = exec.Command("sysctl", "-p")
+	if err := cmd.Run(); err != nil {
+		log.Printf("error enabling IP forwarding: %v", err)
+		return nil
+	}
+
 	return nil
 }
 
@@ -38,7 +45,7 @@ func (m *NatManager) setupMasquerading() error {
 func (m *NatManager) SetupForwardingRules() error {
 	bridgeDetails := m.BridgeManager.ReturnBridgeDetails()
 
-	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", bridgeDetails.DefaultBridge, "-o", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
+	cmd := exec.Command("iptables", "-A", "FORWARD", "-i", "eth0", "-o", bridgeDetails.DefaultBridge, "-j", "ACCEPT")
 	if err := cmd.Run(); err != nil {
 		log.Printf("error setting up forwarding rules: %v", err)
 		return nil

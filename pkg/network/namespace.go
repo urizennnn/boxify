@@ -94,14 +94,14 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 		log.Printf("[AssignIP] Could not get container %v: %v", containerId, err)
 		return nil
 	}
-	log.Printf("[AssignIP] Looking for veth: %s", container.NetworkInfo.ContainerVeth)
+	log.Printf("[AssignIP] Looking for veth: %s","eth0")
 
-	containerVeth, err := netlink.LinkByName(container.NetworkInfo.ContainerVeth)
+	containerVeth, err := netlink.LinkByName("eth0")
 	if err != nil {
-		log.Printf("[AssignIP] Could not find veth %s: %v", container.NetworkInfo.ContainerVeth, err)
+		log.Printf("[AssignIP] Could not find veth %s: %v", "eth0", err)
 		return nil
 	}
-	log.Printf("[AssignIP] Found veth %s (index: %d)", container.NetworkInfo.ContainerVeth, containerVeth.Attrs().Index)
+	log.Printf("[AssignIP] Found veth %s (index: %d)", "eth0", containerVeth.Attrs().Index)
 
 	ipAddr := m.IpManager.GetNextIP()
 	if ipAddr == "" {
@@ -110,7 +110,8 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 	}
 	log.Printf("[AssignIP] Got IP address: %s", ipAddr)
 
-	addr, err := netlink.ParseAddr(ipAddr)
+	//FIX: dynamically set subnet mask
+	addr, err := netlink.ParseAddr(ipAddr+"/16")
 	if err != nil {
 		log.Printf("[AssignIP] Failed to parse addr %s: %v", ipAddr, err)
 		return err
@@ -119,7 +120,7 @@ func (m *NetworkManager) AssignIPToVethInContainerNamespace(containerId string, 
 	log.Printf("[AssignIP] Adding IP address %s to veth", ipAddr)
 	err = netlink.AddrAdd(containerVeth, addr)
 	if err != nil {
-		log.Printf("[AssignIP] Could not assign IP address %s to veth %s: %v", ipAddr, container.NetworkInfo.ContainerVeth, err)
+		log.Printf("[AssignIP] Could not assign IP address %s to veth %s: %v", ipAddr, "eth0", err)
 		return nil
 	}
 	log.Printf("[AssignIP] Successfully added IP address")
