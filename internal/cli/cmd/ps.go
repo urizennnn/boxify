@@ -13,7 +13,13 @@ import (
 
 var psCmd = &cobra.Command{
 	Use:   "ps",
-	Short: "List running containers",
+	Short: "List all running containers",
+	Long: `Display a list of all running Boxify containers with their details.
+
+Shows container ID, image, command, creation time, status, and other information
+in a Docker-like table format.`,
+	Example: `  # List all running containers
+  boxify ps`,
 	Run: func(cmd *cobra.Command, args []string) {
 		containers := container.ListAllContainers()
 
