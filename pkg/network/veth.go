@@ -49,6 +49,7 @@ func (m *VethManager) CreateVethPairAndAttachToHostBridge(containerID string, br
 		log.Printf("could not set link up, %v\n", err)
 		return "", "", err
 	}
+	log.Printf("veth name %v\n", veth.PeerName)
 	m.veths[containerID] = [2]string{hostName, containerName}
 	return hostName, containerName, nil
 }

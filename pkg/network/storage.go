@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/urizennnn/boxify/config"
+	"github.com/urizennnn/boxify/pkg/daemon/types"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +15,7 @@ import (
 const NetworkStorageDir = "/var/lib/boxify/networks"
 
 func WriteNetworkConfig(networkStorage *config.NetworkStorage) error {
-	if err := os.MkdirAll(NetworkStorageDir, 0755); err != nil {
+	if err := os.MkdirAll(NetworkStorageDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create network storage directory: %w", err)
 	}
 
@@ -33,14 +34,14 @@ func WriteNetworkConfig(networkStorage *config.NetworkStorage) error {
 		return fmt.Errorf("failed to marshal network config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write network config: %w", err)
 	}
 
 	return nil
 }
 
-func UpdateContainerInNetwork(networkId string, container config.ContainerStorage) error {
+func UpdateContainerInNetwork(networkId string, container *types.Container) error {
 	configPath := filepath.Join(NetworkStorageDir, "default.yaml")
 
 	lock := NewFileLock(configPath)
@@ -59,7 +60,7 @@ func UpdateContainerInNetwork(networkId string, container config.ContainerStorag
 		return fmt.Errorf("failed to unmarshal network config: %w", err)
 	}
 
-	container.AttachedAt = time.Now().Format(time.RFC3339)
+	container.CreatedAt = time.Now()
 	networkStorage.Containers = append(networkStorage.Containers, container)
 
 	updatedData, err := yaml.Marshal(&networkStorage)
@@ -67,7 +68,7 @@ func UpdateContainerInNetwork(networkId string, container config.ContainerStorag
 		return fmt.Errorf("failed to marshal updated network config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, updatedData, 0644); err != nil {
+	if err := os.WriteFile(configPath, updatedData, 0o644); err != nil {
 		return fmt.Errorf("failed to write updated network config: %w", err)
 	}
 

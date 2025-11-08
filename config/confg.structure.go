@@ -1,5 +1,7 @@
 package config
 
+import "github.com/urizennnn/boxify/pkg/daemon/types"
+
 type ConfigStructure struct {
 	ImageName string   `yaml:"image_name" json:"image_name"`
 	Settings  Settings `yaml:"settings" json:"settings"`
@@ -16,14 +18,7 @@ type NetworkStorage struct {
 	CreatedAt  string             `yaml:"created_at" json:"created_at"`
 	Bridge     NetworkBridge      `yaml:"bridge" json:"bridge"`
 	Ipam       NetworkIpam        `yaml:"ipam" json:"ipam"`
-	Containers []ContainerStorage `yaml:"containers" json:"containers"`
-}
-type ContainerStorage struct {
-	Id                string `yaml:"id" json:"id"`
-	IpAddr            string `yaml:"ip_addr" json:"ip_addr"`
-	VethName          string `yaml:"veth_name" json:"veth_name"`
-	VethContainerName string `yaml:"veth_container_name" json:"veth_container_name"`
-	AttachedAt        string `yaml:"attached_at" json:"attached_at"`
+	Containers []*types.Container `yaml:"containers" json:"containers"`
 }
 
 type NetworkBridge struct {

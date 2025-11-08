@@ -4,20 +4,15 @@ import (
 	"log"
 	"os"
 	"syscall"
-
-	"github.com/urizennnn/boxify/pkg/network"
 )
 
 func main() {
-	if len(os.Args) < 8 {
-		log.Fatalf("Usage: boxify-init <containerID> <memory> <cpu> <containerVeth> <gateway> <ipAddr> <mergedDir>")
+	if len(os.Args) < 5 {
+		log.Fatalf("Usage: boxify-init <containerID> <memory> <cpu> <mergedDir>")
 	}
 
 	containerID := os.Args[1]
-	containerVeth := os.Args[4]
-	gateway := os.Args[5]
-	ipAddr := os.Args[6]
-	mergedDir := os.Args[7]
+	mergedDir := os.Args[4]
 	err := syscall.Chroot(mergedDir)
 	if err != nil {
 		log.Printf("Error: error in pivot function %v\n", err)
@@ -35,10 +30,6 @@ func main() {
 	defer os.RemoveAll("/sys/fs/cgroup/boxify/")
 
 	setupMounts()
-
-	if err := network.SetupContainerNetworkStandalone(containerID, containerVeth, gateway, ipAddr); err != nil {
-		log.Fatalf("Error setting up network: %v\n", err)
-	}
 
 	log.Println("Container ready, waiting for attach...")
 	select {} 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/urizennnn/boxify/config"
+	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/vishvananda/netlink"
 )
 
@@ -106,7 +107,7 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 				NextIP:       ip.NextIP.String(),
 				AllocatedIPs: make(map[string]string),
 			},
-			Containers: []config.ContainerStorage{},
+			Containers: []*types.Container{},
 		}
 
 		for name, ipAddr := range ip.Allocated {

@@ -20,6 +20,7 @@ setup:
 	chmod +x /usr/local/bin/boxifyd
 	chmod +x /usr/local/bin/boxify
 	chmod +x /usr/local/bin/boxify-init
+	sudo systemctl daemon-reload
 	sudo systemctl restart boxifyd
 
 

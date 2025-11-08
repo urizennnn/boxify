@@ -7,17 +7,18 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/urizennnn/boxify/config"
 	"github.com/urizennnn/boxify/pkg/cgroup"
 	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/urizennnn/boxify/pkg/network"
+	"gopkg.in/yaml.v3"
 )
 
 type DaemonInterface interface {
@@ -39,6 +40,7 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 	containerID := uuid.New().String()
 	networkMgr := d.NetworkManager()
 	hostVeth, containerVeth, err := networkMgr.VethManager.CreateVethPairAndAttachToHostBridge(containerID, networkMgr.BridgeManager)
+	log.Printf("Created veth pair: host=%s, container=%s\n", hostVeth, containerVeth)
 	if err != nil {
 		log.Printf("Error creating veth pair: %v\n", err)
 		return
@@ -49,7 +51,11 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create container", http.StatusInternalServerError)
 		return
 	}
-	http.ResponseWriter.Write(w, []byte(strconv.Itoa(pid)))
+	_, err = http.ResponseWriter.Write(w, []byte(strconv.Itoa(pid)))
+	if err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, hostVeth string, networkMgr *network.NetworkManager) (int, error) {
@@ -61,7 +67,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 		log.Fatalf("Error: failed in creating overlay FS %v\n", err)
 	}
 
-	cmd := exec.Command("/usr/local/bin/boxify-init", containerID, memory, cpu, containerVeth, gateway, nextIP,mergedDir)
+	cmd := exec.Command("/usr/local/bin/boxify-init", containerID, memory, cpu, mergedDir)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
@@ -99,8 +105,9 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 
 	d.AddContainer(containerInfo)
 
-	if err := networkMgr.MoveVethIntoContainerNamespace(containerVeth, containerID, d); err != nil {
-		log.Printf("Error moving veth into namespace: %v\n", err)
+	log.Printf("Setting up container interface for container %s\n", containerID)
+	if err := networkMgr.SetupContainerInterface(containerID, d, containerVeth); err != nil {
+		log.Printf("Error setting up container interface: %v\n", err)
 		return 0, err
 	}
 
@@ -110,26 +117,35 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 		return 0, err
 	}
 
-	if err = saveContainerToJSON(containerInfo); err != nil {
+	if err = saveContainerToDefaultConfig(containerInfo); err != nil {
 		log.Printf("Error saving container info: %v\n", err)
 	}
 
 	return pid, nil
 }
 
-func saveContainerToJSON(container *types.Container) error {
-	dir := "/var/lib/boxify"
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return errors.New("failed to create directory: " + err.Error())
-	}
-
-	filePath := filepath.Join(dir, container.ID+".json")
-	data, err := json.MarshalIndent(container, "", "  ")
+func saveContainerToDefaultConfig(container *types.Container) error {
+	filename := "/var/lib/boxify/networks/default.yaml"
+	yamlFile, err := os.ReadFile(filename)
 	if err != nil {
-		return errors.New("failed to marshal container info: " + err.Error())
+		log.Printf("Error reading default network config: %v\n", err)
+		return err
 	}
 
-	if err := os.WriteFile(filePath, data, 0o644); err != nil {
+	var configStructure config.NetworkStorage
+	if err := yaml.Unmarshal(yamlFile, &configStructure); err != nil {
+		log.Printf("Error unmarshaling YAML: %v\n", err)
+		return err
+	}
+
+	configStructure.Containers = append(configStructure.Containers, container)
+	updatedData, err := yaml.Marshal(&configStructure)
+	if err != nil {
+		log.Printf("Error marshaling updated YAML: %v\n", err)
+		return err
+	}
+
+	if err := os.WriteFile(filename, updatedData, 0o644); err != nil {
 		return errors.New("failed to write container info: " + err.Error())
 	}
 
