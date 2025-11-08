@@ -8,6 +8,7 @@ ExecStart=/usr/local/bin/boxifyd
 Restart=on-failure
 StandardOutput=journal
 StandardError=journal
+Group=boxify
 PrivateTmp=yes
 NoNewPrivileges=yes
 

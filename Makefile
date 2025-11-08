@@ -10,6 +10,7 @@ setup:
 	@echo "Extracting Alpine minirootfs..."
 	tar -xzf $(ALPINE_TAR) -C $(ROOTFS_DIR)
 	@echo "Alpine rootfs extracted to $(ROOTFS_DIR)"
+	sudo groupadd -f boxify
 	cp ./pkg/daemon/boxifyd.service /etc/systemd/system/
 	go build -o boxify ./cmd/boxify/main.go
 	go build -o boxifyd ./cmd/boxifyd/main.go
