@@ -60,17 +60,20 @@ func main() {
 		log.Fatalf("Request failed with status: %d", resp.StatusCode)
 	}
 
-	var result int
+	var result struct {
+		Pid int    `json:"pid"`
+		Cmd string `json:"cmd"`
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		log.Printf("Failed to decode response: %v", err)
 	}
 
-	fmt.Printf("Container created successfully: %+v\n", result)
+	fmt.Printf("Container created successfully: PID=%d, CMD=%s\n", result.Pid, result.Cmd)
 	err = syscall.Exec(
 		"/usr/bin/nsenter",
 		[]string{
 			"nsenter",
-			"-t", fmt.Sprintf("%d", result),
+			"-t", fmt.Sprintf("%d", result.Pid),
 			"-u", "-i", "-p", "-n", "-m",
 			"/bin/sh",
 		},

@@ -46,19 +46,31 @@ func HandleCreate(d DaemonInterface, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pid, err := parent(d, containerID, memory, cpu, containerVeth, hostVeth, networkMgr)
+	pid, cmd, err := parent(d, containerID, memory, cpu, containerVeth, hostVeth, networkMgr)
 	if err != nil {
 		http.Error(w, "Failed to create container", http.StatusInternalServerError)
 		return
 	}
-	_, err = http.ResponseWriter.Write(w, []byte(strconv.Itoa(pid)))
+
+	response := map[string]interface{}{
+		"pid": pid,
+		"cmd": cmd.String(),
+	}
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(jsonBytes)
 	if err != nil {
 		http.Error(w, "Failed to write response", http.StatusInternalServerError)
 		return
 	}
 }
 
-func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, hostVeth string, networkMgr *network.NetworkManager) (int, error) {
+func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, hostVeth string, networkMgr *network.NetworkManager) (int, *exec.Cmd, error) {
 	gateway := networkMgr.IpManager.GetGateway()
 	bridgeCIDR := networkMgr.IpManager.BridgeCIDR
 	nextIP := networkMgr.IpManager.GetNextIP() + bridgeCIDR
@@ -81,7 +93,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 
 	if err := cmd.Start(); err != nil {
 		log.Printf("Error starting container: %v\n", err)
-		return 0, err
+		return 0, nil, err
 	}
 	pid := cmd.Process.Pid
 
@@ -107,13 +119,13 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 	log.Printf("Setting up container interface for container %s\n", containerID)
 	if err := networkMgr.SetupContainerInterface(containerID, d, containerVeth); err != nil {
 		log.Printf("Error setting up container interface: %v\n", err)
-		return 0, err
+		return 0, nil, err
 	}
 
 	err = cgroup.SetupCgroupsV2(pid, memory, cpu)
 	if err != nil {
 		log.Printf("Error setting up cgroups: %v\n", err)
-		return 0, err
+		return 0, nil, err
 	}
 
 	if err = saveContainerToDefaultConfig(containerInfo); err != nil {
@@ -127,7 +139,7 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 			log.Printf("Container %s (PID %d) exited successfully", containerID, pid)
 		}
 	}()
-	return pid, nil
+	return pid, cmd, nil
 }
 
 func saveContainerToDefaultConfig(container *types.Container) error {
