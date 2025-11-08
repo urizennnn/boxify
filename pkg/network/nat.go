@@ -15,12 +15,6 @@ func (m *NatManager) enableIPForwarding() error {
 		return nil
 	}
 	log.Printf("IP forwarding enabled successfully")
-	cmd = exec.Command("sysctl", "-p")
-	if err := cmd.Run(); err != nil {
-		log.Printf("error enabling IP forwarding: %v", err)
-		return nil
-	}
-
 	return nil
 }
 
