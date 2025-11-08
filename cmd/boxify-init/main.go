@@ -32,7 +32,6 @@ func main() {
 	setupMounts()
 
 	log.Println("Container ready, waiting for attach...")
-	select {} 
 }
 
 func setupMounts() {
