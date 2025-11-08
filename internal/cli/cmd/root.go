@@ -1,6 +1,5 @@
 /*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
+Copyright © 2025 urizennnn <igamerryt@gmail.com>
 */
 package cmd
 
@@ -10,20 +9,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
-
 var rootCmd = &cobra.Command{
-	Use:   "cli",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "boxify",
+	Short: "A lightweight container runtime built from scratch",
+	Long: `Boxify is a lightweight container runtime built from scratch in Go.
+It provides process isolation using Linux namespaces, resource management
+with cgroups, and networking capabilities - similar to Docker but simpler.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+Features:
+  • Process isolation with Linux namespaces (PID, UTS, IPC, NET, MNS)
+  • Resource management via cgroups v2 (CPU and memory limits)
+  • Networking with virtual ethernet pairs and bridge networking
+  • Overlay filesystem for container isolation
+  • Background daemon architecture for container lifecycle management
+
+Usage:
+  boxify [command]
+
+Examples:
+  # List running containers
+  boxify ps
+
+  # Run a container using legacy bare method
+  boxify bare
+
+  # Display help for a command
+  boxify [command] --help`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -36,15 +47,6 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cli.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Configure Cobra to show help by default when no command is provided
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
 }
-
-
