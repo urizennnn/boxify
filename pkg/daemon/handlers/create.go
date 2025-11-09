@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -11,13 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/urizennnn/boxify/config"
 	"github.com/urizennnn/boxify/pkg/cgroup"
 	"github.com/urizennnn/boxify/pkg/container"
 	"github.com/urizennnn/boxify/pkg/daemon/requests"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/urizennnn/boxify/pkg/network"
-	"gopkg.in/yaml.v3"
+	"github.com/urizennnn/boxify/pkg/storage"
 )
 
 type DaemonInterface interface {
@@ -144,29 +142,6 @@ func parent(d DaemonInterface, containerID, memory, cpu string, containerVeth, h
 }
 
 func saveContainerToDefaultConfig(container *types.Container) error {
-	filename := "/var/lib/boxify/networks/default.yaml"
-	yamlFile, err := os.ReadFile(filename)
-	if err != nil {
-		log.Printf("Error reading default network config: %v\n", err)
-		return err
-	}
-
-	var configStructure config.NetworkStorage
-	if err := yaml.Unmarshal(yamlFile, &configStructure); err != nil {
-		log.Printf("Error unmarshaling YAML: %v\n", err)
-		return err
-	}
-
-	configStructure.Containers = append(configStructure.Containers, container)
-	updatedData, err := yaml.Marshal(&configStructure)
-	if err != nil {
-		log.Printf("Error marshaling updated YAML: %v\n", err)
-		return err
-	}
-
-	if err := os.WriteFile(filename, updatedData, 0o644); err != nil {
-		return errors.New("failed to write container info: " + err.Error())
-	}
-
-	return nil
+	repo := storage.NewNetworkRepository()
+	return repo.UpdateContainerInNetwork("default", container)
 }

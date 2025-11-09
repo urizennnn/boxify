@@ -2,24 +2,18 @@ package container
 
 import (
 	"log"
-	"os"
 
-	"github.com/urizennnn/boxify/config"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
-	"gopkg.in/yaml.v3"
+	"github.com/urizennnn/boxify/pkg/storage"
 )
 
+// ListAllContainers retrieves all containers from storage
 func ListAllContainers() []*types.Container {
-	yamlConfigFile, err := os.ReadFile("/var/lib/boxify/networks/default.yaml")
+	repo := storage.NewNetworkRepository()
+	containers, err := repo.ListAllContainers()
 	if err != nil {
-		log.Printf("Error opening default network config: %v\n", err)
+		log.Printf("Error listing containers: %v\n", err)
 		return nil
 	}
-	var fileConfig config.NetworkStorage
-	err = yaml.Unmarshal(yamlConfigFile, &fileConfig)
-	if err != nil {
-		log.Printf("Error unmarshaling YAML: %v\n", err)
-		return nil
-	}
-	return fileConfig.Containers
+	return containers
 }
