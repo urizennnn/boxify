@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/urizennnn/boxify/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -188,7 +187,7 @@ func (m *IPManager) persistNextIP(nextIP string) error {
 	return WriteNetworkConfigWithoutLock(networkConfig)
 }
 
-func WriteNetworkConfigWithoutLock(networkStorage *config.NetworkStorage) error {
+func WriteNetworkConfigWithoutLock(networkStorage *NetworkStorage) error {
 	configPath := NetworkStorageDir + "/default.yaml"
 
 	data, err := yaml.Marshal(networkStorage)

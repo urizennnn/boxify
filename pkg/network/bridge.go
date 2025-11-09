@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/google/uuid"
-	"github.com/urizennnn/boxify/config"
 	"github.com/urizennnn/boxify/pkg/daemon/types"
 	"github.com/vishvananda/netlink"
 )
@@ -105,14 +104,14 @@ func (m *BridgeManager) CreateBridgeWithIp(ip *IPManager) error {
 		log.Printf("[SUCCESS] Network config updated")
 	} else {
 		log.Printf("[INFO] Creating new network config")
-		networkStorage := &config.NetworkStorage{
+		networkStorage := &NetworkStorage{
 			Id:   uuid.New().String(),
 			Name: la.Name,
-			Bridge: config.NetworkBridge{
+			Bridge: NetworkBridge{
 				Name: la.Name,
 				Mtu:  m.BridgeInstance.Attrs().MTU,
 			},
-			Ipam: config.NetworkIpam{
+			Ipam: NetworkIpam{
 				Subnet:       ip.BridgeCIDR,
 				Gateway:      ip.Gateway.String(),
 				NextIP:       ip.NextIP.String(),

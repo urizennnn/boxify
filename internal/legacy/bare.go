@@ -45,8 +45,8 @@ func Run() {
 	reqBody := requests.InitContainerRequest{
 		Name:         requestedConfig.ImageName,
 		OriginFolder: cwd,
-		MemoryLimit:  requestedConfig.Settings.MemoryLimit,
-		CpuLimit:     requestedConfig.Settings.CpuLimit,
+		MemoryLimit:  requestedConfig.ResourceLimits.MemoryLimit,
+		CpuLimit:     requestedConfig.ResourceLimits.CpuLimit,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -99,23 +99,23 @@ func Run() {
 	}
 }
 
-func parseConfigFile() (config.ConfigStructure, error) {
+func parseConfigFile() (config.ContainerConfig, error) {
 	var yamlFile []byte
 	yamlFile, err := os.ReadFile("boxify.yaml")
 	if err != nil {
 		yamlFile, err = os.ReadFile("boxify.yml")
 		if err != nil {
 			log.Fatalf("Config file not found: %v", err)
-			return config.ConfigStructure{}, err
+			return config.ContainerConfig{}, err
 		}
 		log.Fatalf("Failed to open config file: %v", err)
-		return config.ConfigStructure{}, err
+		return config.ContainerConfig{}, err
 	}
-	var fileConfig config.ConfigStructure
+	var fileConfig config.ContainerConfig
 	err = yaml.Unmarshal(yamlFile, &fileConfig)
 	if err != nil {
 		log.Fatalf("Error unmarshaling YAML: %v", err)
-		return config.ConfigStructure{}, err
+		return config.ContainerConfig{}, err
 	}
 
 	fmt.Printf("Parsed config: %+v\n", fileConfig)
